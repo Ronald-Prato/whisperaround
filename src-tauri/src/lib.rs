@@ -2,6 +2,7 @@
 
 mod commands;
 mod inject;
+mod local;
 mod pipeline;
 mod recorder;
 mod settings;
@@ -33,14 +34,17 @@ pub fn run() {
             // Load persisted settings into the already-managed state.
             let loaded = settings::load(&app.handle());
             let shortcut_str = loaded.shortcut.clone();
+            let model = loaded.model.clone();
             *app.state::<AppState>().settings.lock().unwrap() = loaded;
+            // Preload a local faster-whisper model if it is the active one.
+            commands::warm_local_model(&app.handle(), &model);
 
             // Pin the floating pill to the top-center of the screen on launch.
             // Also disable the OS window shadow at runtime (belt-and-suspenders
             // with the config flag) so the transparent window shows no box.
             if let Some(main) = app.get_webview_window("main") {
                 let _ = main.set_shadow(false);
-                window::layout_main(&main, window::pill_size());
+                window::layout_main(&main, window::PILL_SIZE);
             }
 
             setup_global_shortcut(app, &shortcut_str)?;
@@ -61,8 +65,7 @@ pub fn run() {
             commands::load_settings,
             commands::save_settings,
             commands::set_model,
-            commands::set_pill_mode,
-            commands::expand_panel,
+            commands::fit_window,
             commands::open_settings,
         ])
         .run(tauri::generate_context!())
@@ -142,7 +145,7 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 /// Show + focus the floating pill, re-pinning it to the top-center.
 fn show_pill(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
-        window::layout_main(&window, window::pill_size());
+        window::layout_main(&window, window::PILL_SIZE);
         let _ = window.show();
         let _ = window.set_focus();
     }

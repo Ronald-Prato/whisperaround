@@ -1,6 +1,6 @@
 [package]
 name = "whisperaround"
-version = "0.1.2"
+version = "0.1.3"
 description = "Superwhisper but open sourced — instant voice dictation via OpenAI Whisper."
 authors = ["WhisperAround"]
 edition = "2021"
@@ -37,6 +37,10 @@ reqwest = { version = "0.12", default-features = false, features = [
   "json",
   "rustls-tls",
 ] }
+
+# Atomic move+resize of the floating window (avoids a one-frame jump).
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
 
 [profile.release]
 # Optimize for a small binary to hit the < 20 MB target.

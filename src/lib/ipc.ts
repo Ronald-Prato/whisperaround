@@ -24,15 +24,31 @@ const previewSettings: SettingsView = {
   autoPaste: true,
 };
 
+/** Browser preview only: a fake pipeline so the pill's states can be seen. */
+let previewStatus: AppStatus = "idle";
+const previewListeners = new Set<(e: StatusEvent) => void>();
+function previewEmit(status: AppStatus) {
+  previewStatus = status;
+  previewListeners.forEach((fn) => fn({ status }));
+}
+
 /** Read the current pipeline status (used to seed the UI on mount). */
 export function getStatus(): Promise<AppStatus> {
-  if (!IN_TAURI) return Promise.resolve("idle");
+  if (!IN_TAURI) return Promise.resolve(previewStatus);
   return invoke<AppStatus>("get_status");
 }
 
 /** Manually toggle recording (same effect as pressing the global shortcut). */
 export function toggleRecording(): Promise<void> {
-  if (!IN_TAURI) return Promise.resolve();
+  if (!IN_TAURI) {
+    if (previewStatus === "recording") {
+      previewEmit("processing");
+      setTimeout(() => previewEmit("idle"), 1500);
+    } else if (previewStatus !== "processing") {
+      previewEmit("recording");
+    }
+    return Promise.resolve();
+  }
   return invoke("toggle_recording");
 }
 
@@ -57,7 +73,10 @@ export function saveSettings(update: SettingsUpdate): Promise<SettingsView> {
 
 /** Subscribe to backend status changes. Returns an unlisten function. */
 export function onStatus(handler: (e: StatusEvent) => void): Promise<UnlistenFn> {
-  if (!IN_TAURI) return Promise.resolve(() => {});
+  if (!IN_TAURI) {
+    previewListeners.add(handler);
+    return Promise.resolve(() => previewListeners.delete(handler));
+  }
   return listen<StatusEvent>("status", (event) => handler(event.payload));
 }
 
@@ -70,18 +89,13 @@ export function setModel(model: string): Promise<void> {
   return invoke("set_model", { model });
 }
 
-export type PillMode = "idle" | "icons" | "tip" | "menu" | "rec";
-
-/** Fit the compact pill window to a UI mode. */
-export function setPillMode(mode: PillMode): Promise<void> {
+/**
+ * Resize the floating window (logical px), keeping its top-center fixed. The
+ * pill sequences these around its morph animations.
+ */
+export function fitWindow(width: number, height: number): Promise<void> {
   if (!IN_TAURI) return Promise.resolve();
-  return invoke("set_pill_mode", { mode });
-}
-
-/** Grow the floating window into the expanded panel layout. */
-export function expandPanel(): Promise<void> {
-  if (!IN_TAURI) return Promise.resolve();
-  return invoke("expand_panel");
+  return invoke("fit_window", { width, height });
 }
 
 /** Open the standalone settings window. */

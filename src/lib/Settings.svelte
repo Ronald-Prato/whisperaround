@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { loadSettings, saveSettings } from "./ipc";
+  import { MODELS } from "./models";
   import type { SettingsView } from "./types";
 
   let model = $state("gpt-4o-mini-transcribe");
@@ -61,9 +62,12 @@
   <label class="field">
     <span>Modelo</span>
     <select bind:value={model}>
-      <option value="whisper-1">whisper-1</option>
-      <option value="gpt-4o-transcribe">gpt-4o-transcribe</option>
-      <option value="gpt-4o-mini-transcribe">gpt-4o-mini-transcribe</option>
+      <optgroup label="OpenAI (nube)">
+        {#each MODELS.filter((m) => !m.local) as m (m.id)}<option value={m.id}>{m.label}</option>{/each}
+      </optgroup>
+      <optgroup label="Local (faster-whisper)">
+        {#each MODELS.filter((m) => m.local) as m (m.id)}<option value={m.id}>{m.label}</option>{/each}
+      </optgroup>
     </select>
   </label>
 

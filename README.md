@@ -19,6 +19,8 @@ portapapeles, auto-pegándolo (Ctrl/Cmd+V) en la app enfocada.
 - **Backend** (`src-tauri/src/`): Rust. Todo el pipeline crítico:
   - `recorder.rs` — captura nativa del micrófono con `cpal`, encode a WAV con `hound`.
   - `whisper.rs` — POST multipart a `v1/audio/transcriptions` con `reqwest`.
+  - `local.rs` — transcripción local con faster-whisper: venv privado + worker
+    Python persistente (`resources/fw_server.py`) que mantiene el modelo cargado.
   - `inject.rs` — escribe el portapapeles y simula Ctrl/Cmd+V con `enigo`.
   - `pipeline.rs` — máquina de estados Idle → Recording → Processing → Idle.
   - `settings.rs` — persiste ajustes en el config dir (la API key vive solo aquí).
@@ -88,8 +90,16 @@ evitar el toolchain cruzado bajo WSL2.
 
 ## Notas
 
-- Modelo configurable en Ajustes: `whisper-1` (por defecto), `gpt-4o-transcribe`,
-  `gpt-4o-mini-transcribe`.
+- Modelo configurable en Ajustes o en el dropdown de la píldora:
+  - OpenAI (nube): `whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`
+    (por defecto).
+  - Local (sin API key, el audio no sale del equipo): `faster-whisper small` y
+    `faster-whisper medium` (CPU, int8). Requiere Python 3 instalado: la primera
+    vez la app crea un venv en su carpeta de datos local
+    (`%LOCALAPPDATA%\com.whisperaround.app\fw-venv`) e instala `faster-whisper`
+    (la píldora muestra el spinner mientras tanto). Los modelos se toman de la
+    caché de Hugging Face (`~/.cache/huggingface`), así que los ya descargados no
+    se vuelven a bajar.
 - Bajo WSLg el auto-paste actúa sobre la sesión WSLg; valida el Ctrl+V real en el
   build nativo de Windows.
 

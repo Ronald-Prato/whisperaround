@@ -2,40 +2,16 @@
 //! IPC commands (`commands.rs`). The `main` window is a single always-on-top
 //! surface that resizes to fit whatever the pill is showing — an empty pill at
 //! rest, the icon row / tooltip on hover, the model menu, the recording state,
-//! or the expanded panel. Resizes keep the window's current anchor so the pill
-//! stays where the user dragged it instead of snapping back to the top.
+//! or the expanded panel. Resizes keep the top-center fixed so the pill stays
+//! where the user dragged it instead of snapping back to the top.
 
 use tauri::{LogicalSize, PhysicalPosition, WebviewWindow};
 
-/// Expanded panel size (logical px). Compact, like Superwhisper's.
-pub const PANEL_SIZE: (f64, f64) = (500.0, 158.0);
+/// Resting (empty) pill window size (logical px). Must match `IDLE` in
+/// `src/lib/Pill.svelte`, which drives every other size.
+pub const PILL_SIZE: (f64, f64) = (72.0, 40.0);
 /// Gap between the window and the top edge of the screen (logical px).
 const TOP_MARGIN: f64 = 12.0;
-
-/// Which point of the window stays fixed across a resize.
-pub enum Anchor {
-    /// Keep the top edge and horizontal center (compact pill: grows downward
-    /// and symmetrically, so it never jumps sideways or upward).
-    TopCenter,
-    /// Keep the geometric center (expanding/collapsing the panel).
-    Center,
-}
-
-/// Logical size for each compact UI mode requested by the frontend.
-pub fn size_for_mode(mode: &str) -> (f64, f64) {
-    match mode {
-        "icons" => (160.0, 54.0), // pill with the 3 icons, no tooltip
-        "tip" => (230.0, 112.0),  // icons + hover tooltip below
-        "menu" => (230.0, 208.0), // icons + model dropdown
-        "rec" => (130.0, 54.0),   // recording / processing
-        _ => (72.0, 40.0),        // idle: empty pill (narrow)
-    }
-}
-
-/// The resting (empty) pill size.
-pub fn pill_size() -> (f64, f64) {
-    size_for_mode("idle")
-}
 
 /// Resize and re-pin to the top-center of the active monitor. Used on launch
 /// and when revealing the pill from the tray (a deliberate "reset to top").
@@ -53,8 +29,9 @@ pub fn layout_main(window: &WebviewWindow, size: (f64, f64)) {
     let _ = window.set_position(PhysicalPosition::new(x.round(), y.round()));
 }
 
-/// Resize while keeping the given anchor point fixed, clamped to the monitor.
-pub fn resize_anchored(window: &WebviewWindow, size: (f64, f64), anchor: Anchor) {
+/// Resize keeping the top edge and horizontal center fixed (the pill grows
+/// downward and symmetrically), clamped to the monitor.
+pub fn resize_anchored(window: &WebviewWindow, size: (f64, f64)) {
     let (pos, cur) = match (window.outer_position(), window.outer_size()) {
         (Ok(p), Ok(c)) => (p, c),
         _ => {
@@ -68,10 +45,7 @@ pub fn resize_anchored(window: &WebviewWindow, size: (f64, f64), anchor: Anchor)
 
     let center_x = pos.x as f64 + cur.width as f64 / 2.0;
     let mut nx = center_x - new_w / 2.0;
-    let mut ny = match anchor {
-        Anchor::TopCenter => pos.y as f64,
-        Anchor::Center => pos.y as f64 + cur.height as f64 / 2.0 - new_h / 2.0,
-    };
+    let mut ny = pos.y as f64;
 
     // Keep the whole window on the active monitor.
     if let Ok(Some(m)) = window.current_monitor() {
@@ -83,6 +57,30 @@ pub fn resize_anchored(window: &WebviewWindow, size: (f64, f64), anchor: Anchor)
         ny = ny.clamp(mo.y as f64, max_y.max(mo.y as f64));
     }
 
-    let _ = window.set_size(LogicalSize::new(size.0, size.1));
-    let _ = window.set_position(PhysicalPosition::new(nx.round(), ny.round()));
+    set_bounds(window, nx.round() as i32, ny.round() as i32, new_w.round() as i32, new_h.round() as i32);
+}
+
+/// Move + resize in one native call where possible. Two separate calls (size,
+/// then position) briefly show the content off-center — a visible jump.
+#[cfg(windows)]
+fn set_bounds(window: &WebviewWindow, x: i32, y: i32, w: i32, h: i32) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        SetWindowPos, SWP_NOACTIVATE, SWP_NOOWNERZORDER, SWP_NOZORDER,
+    };
+    if let Ok(hwnd) = window.hwnd() {
+        let flags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER;
+        // SAFETY: `hwnd` is the live native handle of this Tauri window.
+        if unsafe { SetWindowPos(HWND(hwnd.0), None, x, y, w, h, flags) }.is_ok() {
+            return;
+        }
+    }
+    let _ = window.set_size(tauri::PhysicalSize::new(w as u32, h as u32));
+    let _ = window.set_position(PhysicalPosition::new(x, y));
+}
+
+#[cfg(not(windows))]
+fn set_bounds(window: &WebviewWindow, x: i32, y: i32, w: i32, h: i32) {
+    let _ = window.set_size(tauri::PhysicalSize::new(w as u32, h as u32));
+    let _ = window.set_position(PhysicalPosition::new(x, y));
 }

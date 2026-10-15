@@ -8,7 +8,7 @@ use tauri::AppHandle;
 
 use crate::settings::Settings;
 use crate::state::{set_status, AppState, AppStatus};
-use crate::{inject, recorder, whisper};
+use crate::{inject, local, recorder, whisper};
 
 /// Advance the state machine based on the current status.
 pub fn toggle(app: &AppHandle) {
@@ -65,9 +65,18 @@ fn stop_and_transcribe(app: &AppHandle) {
     let settings: Settings = state.settings.lock().unwrap().clone();
     let app = app.clone();
 
-    // Off-load the network call so the UI thread stays responsive.
+    // Off-load the network call / local inference so the UI stays responsive.
     tauri::async_runtime::spawn(async move {
-        match whisper::transcribe(&settings.openai_api_key, &settings.model, wav).await {
+        let result = match local::model_name(&settings.model) {
+            Some(name) => {
+                let (app2, name) = (app.clone(), name.to_string());
+                tauri::async_runtime::spawn_blocking(move || local::transcribe(&app2, &name, &wav))
+                    .await
+                    .unwrap_or_else(|e| Err(anyhow::anyhow!("faster-whisper: {e}")))
+            }
+            None => whisper::transcribe(&settings.openai_api_key, &settings.model, wav).await,
+        };
+        match result {
             Ok(text) => {
                 let text = text.trim().to_string();
                 if text.is_empty() {

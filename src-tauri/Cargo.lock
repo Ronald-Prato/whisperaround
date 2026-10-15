@@ -4915,7 +4915,7 @@ checksum = "a28ac98ddc8b9274cb41bb4d9d4d5c425b6020c50c46f25559911905610b4a88"
 
 [[package]]
 name = "whisperaround"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "cpal",
@@ -4928,6 +4928,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-clipboard-manager",
  "tauri-plugin-global-shortcut",
+ "windows 0.61.3",
 ]
 
 [[package]]

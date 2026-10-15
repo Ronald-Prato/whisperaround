@@ -3,9 +3,10 @@
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
+use crate::local;
 use crate::pipeline;
 use crate::settings::{self, SettingsUpdate, SettingsView};
-use crate::state::{AppState, AppStatus};
+use crate::state::{set_status, AppState, AppStatus};
 use crate::window;
 
 /// Current pipeline status (used to seed the UI on mount).
@@ -51,6 +52,7 @@ pub fn save_settings(
     }
 
     settings::save(&app, &settings).map_err(|e| e.to_string())?;
+    warm_local_model(&app, &settings.model);
     Ok(settings.view())
 }
 
@@ -59,26 +61,48 @@ pub fn save_settings(
 #[tauri::command]
 pub fn set_model(app: AppHandle, state: State<AppState>, model: String) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
-    settings.model = model;
-    settings::save(&app, &settings).map_err(|e| e.to_string())
+    settings.model = model.clone();
+    settings::save(&app, &settings).map_err(|e| e.to_string())?;
+    drop(settings);
+    warm_local_model(&app, &model);
+    Ok(())
 }
 
-/// Fit the compact pill window to a UI mode ("idle" | "icons" | "tip" | "menu"
-/// | "rec"). Anchored to its top-center so the pill grows in place and stays
-/// wherever the user dragged it.
-#[tauri::command]
-pub fn set_pill_mode(app: AppHandle, mode: String) {
-    if let Some(window) = app.get_webview_window("main") {
-        window::resize_anchored(&window, window::size_for_mode(&mode), window::Anchor::TopCenter);
-    }
+/// If `model` is a local faster-whisper model, prepare it in the background.
+/// The first-time venv install is surfaced as `Processing` so the pill shows
+/// it is busy; a plain model load stays silent.
+pub fn warm_local_model(app: &AppHandle, model: &str) {
+    let Some(name) = local::model_name(model) else {
+        return;
+    };
+    let (app, name) = (app.clone(), name.to_string());
+    tauri::async_runtime::spawn_blocking(move || {
+        let installing = local::needs_setup(&app);
+        if installing {
+            set_status(&app, AppStatus::Processing, None);
+        }
+        match local::warm(&app, &name) {
+            // Only clear the busy state we set (don't clobber a new recording).
+            Ok(()) if installing => {
+                let current = *app.state::<AppState>().status.lock().unwrap();
+                if current == AppStatus::Processing {
+                    set_status(&app, AppStatus::Idle, None);
+                }
+            }
+            Ok(()) => {}
+            Err(e) => set_status(&app, AppStatus::Error, Some(e.to_string())),
+        }
+    });
 }
 
-/// Grow the floating window into the expanded panel, centered on its current
-/// position (does not snap back to the top of the screen).
+/// Resize the floating window to `width`×`height` logical px. The frontend
+/// decides sizes so it can sequence them around its morph animations. Kept
+/// anchored to the top-center so the pill grows in place, wherever it was
+/// dragged.
 #[tauri::command]
-pub fn expand_panel(app: AppHandle) {
+pub fn fit_window(app: AppHandle, width: f64, height: f64) {
     if let Some(window) = app.get_webview_window("main") {
-        window::resize_anchored(&window, window::PANEL_SIZE, window::Anchor::Center);
+        window::resize_anchored(&window, (width, height));
     }
 }
 
