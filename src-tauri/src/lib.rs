@@ -5,6 +5,7 @@ mod inject;
 mod local;
 mod pipeline;
 mod recorder;
+mod secret;
 mod settings;
 mod state;
 mod whisper;
@@ -26,6 +27,7 @@ const FALLBACK_SHORTCUT: &str = "CmdOrCtrl+Shift+X";
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         // Manage the state up-front (before setup) so the webview can never win
         // a race and invoke a `State<AppState>` command before it exists. Setup
         // then loads the persisted settings into this already-managed state.
@@ -53,6 +55,10 @@ pub fn run() {
             if !onboarded {
                 commands::show_welcome_window(&app.handle());
             }
+            // Dev builds aren't released, so there is nothing to update to.
+            if !cfg!(debug_assertions) {
+                commands::check_update_on_launch(&app.handle());
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -79,6 +85,8 @@ pub fn run() {
             commands::check_python,
             commands::open_python_install,
             commands::finish_onboarding,
+            commands::check_update,
+            commands::install_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

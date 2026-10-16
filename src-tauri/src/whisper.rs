@@ -46,3 +46,21 @@ pub async fn transcribe(api_key: &str, model: &str, wav: Vec<u8>) -> Result<Stri
         .map_err(|e| anyhow!("respuesta inválida de OpenAI: {e}"))?;
     Ok(parsed.text)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The API key is only ever sent here: OpenAI, over HTTPS.
+    #[test]
+    fn key_goes_only_to_openai_over_https() {
+        assert!(ENDPOINT.starts_with("https://api.openai.com/"));
+    }
+
+    #[test]
+    fn missing_key_fails_before_any_request() {
+        let err = tauri::async_runtime::block_on(transcribe("  ", "whisper-1", vec![]))
+            .unwrap_err();
+        assert!(err.to_string().contains("API key"));
+    }
+}

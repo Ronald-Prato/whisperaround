@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { loadSettings, saveSettings } from "./ipc";
+  import { loadSettings, saveSettings, appVersion, checkUpdate, installUpdate } from "./ipc";
   import { MODELS } from "./models";
   import type { SettingsView } from "./types";
 
@@ -13,6 +13,24 @@
 
   let saving = $state(false);
   let savedAt = $state<number | null>(null);
+  let saveError = $state<string | null>(null);
+
+  let version = $state("");
+  /** Newer release on GitHub, if any. */
+  let update = $state<string | null>(null);
+  let updating = $state(false);
+  let updateError = $state<string | null>(null);
+
+  async function runUpdate() {
+    updating = true;
+    updateError = null;
+    try {
+      await installUpdate(); // restarts the app on success
+    } catch (e) {
+      updateError = String(e);
+      updating = false;
+    }
+  }
 
   function apply(view: SettingsView) {
     model = view.model;
@@ -24,10 +42,15 @@
 
   onMount(() => {
     loadSettings().then(apply).catch((e) => console.error("loadSettings failed", e));
+    appVersion().then((v) => (version = v));
+    checkUpdate()
+      .then((v) => (update = v))
+      .catch((e) => console.error("checkUpdate failed", e));
   });
 
   async function save() {
     saving = true;
+    saveError = null;
     try {
       const view = await saveSettings({
         openaiApiKey: apiKeyInput,
@@ -37,6 +60,8 @@
       });
       apply(view);
       savedAt = Date.now();
+    } catch (e) {
+      saveError = String(e);
     } finally {
       saving = false;
     }
@@ -44,6 +69,16 @@
 </script>
 
 <form class="settings" onsubmit={(e) => (e.preventDefault(), save())}>
+  {#if update}
+    <div class="update">
+      <span>Hay una versión nueva: <b>{update}</b></span>
+      <button type="button" class="primary" disabled={updating} onclick={runUpdate}>
+        {updating ? "Actualizando…" : "Actualizar"}
+      </button>
+    </div>
+    {#if updateError}<small class="err">{updateError}</small>{/if}
+  {/if}
+
   <label class="field">
     <span>OpenAI API key</span>
     <input
@@ -56,6 +91,7 @@
       {apiKeyConfigured
         ? "Hay una key guardada. Déjalo en blanco para conservarla."
         : "Aún no hay key configurada."}
+      Se guarda en el llavero del sistema y solo se envía a api.openai.com.
     </small>
   </label>
 
@@ -86,10 +122,14 @@
     <button type="submit" disabled={saving}>
       {saving ? "Guardando…" : "Guardar"}
     </button>
-    {#if savedAt}
+    {#if saveError}
+      <span class="err">{saveError}</span>
+    {:else if savedAt}
       <span class="saved">Guardado ✓</span>
     {/if}
   </div>
+
+  {#if version}<small class="version">WhisperAround {version}</small>{/if}
 </form>
 
 <style>
@@ -141,6 +181,34 @@
   .saved {
     color: #4ade80;
     font-size: 0.85rem;
+  }
+
+  .err {
+    color: #f87171;
+    font-size: 0.82rem;
+  }
+
+  .update {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 10px;
+    background: rgba(100, 108, 255, 0.12);
+    border: 1px solid rgba(100, 108, 255, 0.45);
+    font-size: 0.88rem;
+  }
+
+  .primary {
+    background-color: #646cff;
+    color: #fff;
+  }
+
+  .version {
+    color: #6b6b74;
+    font-size: 0.75rem;
+    text-align: center;
   }
 
   code {

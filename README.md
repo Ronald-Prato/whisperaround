@@ -2,17 +2,93 @@
 
 > superwhisper but open sourced
 
+Dictado por voz para Windows: pulsa un atajo, habla y el texto aparece escrito en
+la app que estés usando (correo, chat, documento…). Gratis y de código abierto.
+
+## Descargar
+
+**[⬇ Descargar WhisperAround para Windows](https://github.com/dansaround/whisperaround/releases/latest)**
+
+En esa página, en **Assets**, baja el archivo que termina en **`_x64-setup.exe`**.
+
+## Instalar
+
+1. Abre el `…_x64-setup.exe` que descargaste.
+2. Si Windows muestra **'Windows protegió tu PC'**, pulsa **Más información →
+   Ejecutar de todas formas**. Aparece porque el instalador aún no está firmado
+   con un certificado de pago, no porque tenga nada malo. Puedes comprobar que
+   salió de este repositorio (ver [Seguridad](#seguridad-y-privacidad)).
+3. Al abrirla por primera vez verás una pantalla de **Bienvenida**. Si quieres
+   usar los modelos locales (sin internet), te dirá si falta Python y te dará un
+   botón para instalarlo gratis desde la Microsoft Store.
+
+La app se actualiza sola: cuando hay una versión nueva, se abre Ajustes con un
+botón **Actualizar**.
+
+## Usar
+
+1. Elige cómo transcribir (en **Ajustes** o en el menú de la píldora):
+   - **OpenAI (nube):** la más precisa. Necesita tu propia
+     [API key de OpenAI](https://platform.openai.com/api-keys); el uso lo paga tu
+     cuenta de OpenAI (aprox. 0,20–0,40 US$ por hora de audio).
+   - **Local (faster-whisper):** gratis y el audio no sale de tu equipo. Necesita
+     Python 3 y la primera vez tarda unos minutos en prepararse.
+2. Pulsa **`Ctrl+Shift+X`** (configurable) para empezar a grabar. La píldora de
+   arriba muestra una onda que se mueve con tu voz.
+3. Pulsa de nuevo para terminar: el texto se copia y se pega solo donde tengas el
+   cursor.
+
+La píldora vive arriba en la pantalla y en la bandeja del sistema (junto al
+reloj). Pasa el ratón por encima para ver sus botones; desde la bandeja puedes
+abrir Ajustes o salir.
+
+## Seguridad y privacidad
+
+Resumen para quien vaya a poner su API key (detalle técnico en
+[SECURITY.md](SECURITY.md)):
+
+- **Tu API key solo se envía a OpenAI** (`https://api.openai.com/v1/audio/transcriptions`)
+  y para nada más. Está en una sola línea del código:
+  [`src-tauri/src/whisper.rs`](src-tauri/src/whisper.rs), y hay un test que lo
+  comprueba.
+- **Se guarda cifrada en el Administrador de credenciales de Windows** (en macOS,
+  en el Llavero), no en un archivo de texto. La interfaz nunca la recibe: solo
+  sabe si hay una configurada.
+- **Sin telemetría, sin analíticas, sin servidores propios.** Las únicas
+  conexiones son: OpenAI (si usas un modelo de la nube), PyPI y Hugging Face (la
+  primera vez que usas un modelo local) y GitHub (para buscar actualizaciones).
+- **Los instaladores se compilan en GitHub Actions** a partir de este código,
+  con una atestación de procedencia que puedes verificar.
+- Consejo: crea una API key solo para WhisperAround y ponle un límite de gasto en
+  OpenAI. Si algún día la quieres revocar, no afecta a nada más.
+
+## Política de firma de código
+
+Los instaladores se compilan exclusivamente con
+[GitHub Actions](.github/workflows/release.yml) a partir de un tag de este
+repositorio. Roles: autor, revisor y aprobador de releases:
+[@dansaround](https://github.com/dansaround).
+
+Privacidad: el programa no transfiere información a otros sistemas salvo lo
+descrito en [Seguridad y privacidad](#seguridad-y-privacidad): la transcripción
+que pides (OpenAI), la preparación de modelos locales (PyPI / Hugging Face) y la
+búsqueda de actualizaciones (GitHub).
+
+---
+
+## Para desarrolladores
+
 Aplicación de escritorio ultraligera (Tauri v2) para dictado instantáneo de voz a
-texto usando la API de OpenAI (Whisper). Vive en segundo plano, se activa con un
-atajo global, graba el micrófono, transcribe vía la API y deja el texto en el
-portapapeles, auto-pegándolo (Ctrl/Cmd+V) en la app enfocada.
+texto usando la API de OpenAI (Whisper) o faster-whisper en local. Vive en
+segundo plano, se activa con un atajo global, graba el micrófono, transcribe y
+deja el texto en el portapapeles, auto-pegándolo (Ctrl/Cmd+V) en la app enfocada.
 
 ```
 [Atajo global] → [cpal graba] → [WAV] → [OpenAI Whisper] → [Portapapeles + auto-paste]
       Idle      →   Recording   →                 Processing                →     Idle
 ```
 
-## Arquitectura
+### Arquitectura
 
 - **Frontend** (`src/`): Svelte + Vite + TypeScript. UI mínima — indicador de
   estado y pantalla de ajustes. Solo orquesta vía IPC; no toca la API key.
@@ -23,21 +99,23 @@ portapapeles, auto-pegándolo (Ctrl/Cmd+V) en la app enfocada.
     Python persistente (`resources/fw_server.py`) que mantiene el modelo cargado.
   - `inject.rs` — escribe el portapapeles y simula Ctrl/Cmd+V con `enigo`.
   - `pipeline.rs` — máquina de estados Idle → Recording → Processing → Idle.
-  - `settings.rs` — persiste ajustes en el config dir (la API key vive solo aquí).
+  - `settings.rs` — persiste ajustes en el config dir.
+  - `secret.rs` — guarda la API key en el llavero del sistema (Credential
+    Manager / Keychain).
   - `lib.rs` — setup: atajo global, system tray, ventana en background.
 
 La API key de OpenAI nunca se envía al webview; el frontend solo recibe un flag
 `apiKeyConfigured`.
 
-## Requisitos de entorno (una sola vez)
+### Requisitos de entorno (una sola vez)
 
-### 1. Rust
+#### 1. Rust
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ```
 
-### 2. Dependencias de sistema (Linux / WSL2)
+#### 2. Dependencias de sistema (Linux / WSL2)
 
 ```bash
 sudo apt update && sudo apt install -y \
@@ -50,7 +128,7 @@ sudo apt update && sudo apt install -y \
 - `libxdo-dev` — requerido por `enigo` (simulación de teclado, X11).
 - `libasound2-dev` + `libasound2-plugins` — ALSA para `cpal`.
 
-### 3. Micrófono bajo WSLg (solo desarrollo)
+#### 3. Micrófono bajo WSLg (solo desarrollo)
 
 `cpal` usa ALSA en Linux; en WSLg el mic se expone por PulseAudio. Crea
 `~/.asoundrc` para enrutar ALSA → PulseAudio:
@@ -62,30 +140,33 @@ ctl.!default pulse
 
 > En el build nativo de Windows esto no aplica: `cpal` usa WASAPI directamente.
 
-## Desarrollo
+### Desarrollo
 
 ```bash
 pnpm install
 pnpm tauri dev     # abre la ventana vía WSLg
 ```
 
-## Uso
+### Tests
 
-1. Abre **Ajustes** y pega tu API key de OpenAI (se guarda en el config local).
-2. Pulsa el atajo global (por defecto `Ctrl+Shift+X`) para empezar a grabar.
-3. Pulsa de nuevo para detener: se transcribe y el texto se pega solo.
+```bash
+cd src-tauri && cargo test   # tests unitarios de Rust
+pnpm check                   # type-check del frontend
+```
 
-La primera vez que se abre aparece una ventana de **Bienvenida** que comprueba
-si hay Python 3 instalado (solo lo necesitan los modelos locales faster-whisper)
-y, si falta, ofrece un botón para abrir la Microsoft Store. Se puede volver a
-abrir desde el tray (**Bienvenida…**).
+CI (`.github/workflows/ci.yml`) corre ambos en cada push y PR.
 
-Mientras graba, la waveform de la píldora refleja el nivel real del micrófono.
+### Release
 
-El indicador muestra `Listo` / `Grabando…` / `Procesando…`. Cerrar la ventana la
-oculta en la bandeja; usa **Salir** desde el tray para terminar.
+1. Sube la versión en `package.json`, `src-tauri/Cargo.toml` y
+   `src-tauri/tauri.conf.json`.
+2. `git tag vX.Y.Z && git push origin main vX.Y.Z`.
+3. `release.yml` compila en `windows-latest`, publica el release con el
+   instalador, el feed del updater (`latest.json`, firmado con la clave
+   `TAURI_SIGNING_PRIVATE_KEY`) y la atestación de procedencia. Si existe el
+   secret `WINGET_TOKEN`, abre también el PR de la nueva versión en winget.
 
-## Build de producción
+### Build de producción
 
 ```bash
 pnpm tauri build
@@ -95,7 +176,7 @@ El instalador de Windows (`.exe`/MSI) se genera vía GitHub Actions en un runner
 `windows-latest` (`.github/workflows/release.yml`) al pushear un tag `v*`, para
 evitar el toolchain cruzado bajo WSL2.
 
-## Notas
+### Notas
 
 - Modelo configurable en Ajustes o en el dropdown de la píldora:
   - OpenAI (nube): `whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`
@@ -110,7 +191,7 @@ evitar el toolchain cruzado bajo WSL2.
 - Bajo WSLg el auto-paste actúa sobre la sesión WSLg; valida el Ctrl+V real en el
   build nativo de Windows.
 
-## Limitaciones conocidas / TODO
+### Limitaciones conocidas / TODO
 
 - **Atajo global no siempre activo:** por ahora el atajo (`Ctrl+Shift+X`) parece
   funcionar de forma fiable solo cuando la app está abierta/enfocada; falta que

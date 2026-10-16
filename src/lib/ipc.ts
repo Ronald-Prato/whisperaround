@@ -6,6 +6,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getVersion } from "@tauri-apps/api/app";
 import type { AppStatus, SettingsView, SettingsUpdate, StatusEvent } from "./types";
 
 /**
@@ -110,6 +111,24 @@ export function checkPython(): Promise<string | null> {
 export function openPythonInstall(): Promise<void> {
   if (!IN_TAURI) return Promise.resolve();
   return invoke("open_python_install");
+}
+
+/** Installed app version (e.g. "0.1.5"). */
+export function appVersion(): Promise<string> {
+  if (!IN_TAURI) return Promise.resolve("dev");
+  return getVersion();
+}
+
+/** Version of a newer published release, or null if up to date. */
+export function checkUpdate(): Promise<string | null> {
+  if (!IN_TAURI) return Promise.resolve(null);
+  return invoke<string | null>("check_update");
+}
+
+/** Download + install the newer release, then restart the app. */
+export function installUpdate(): Promise<void> {
+  if (!IN_TAURI) return Promise.resolve();
+  return invoke("install_update");
 }
 
 /** Dismiss the first-launch welcome window for good. */

@@ -2,6 +2,7 @@
 
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
+use tauri_plugin_updater::UpdaterExt;
 
 use crate::local;
 use crate::pipeline;
@@ -40,12 +41,7 @@ pub fn save_settings(
     let mut settings = state.settings.lock().unwrap();
     let old_shortcut = settings.shortcut.clone();
 
-    if !update.openai_api_key.trim().is_empty() {
-        settings.openai_api_key = update.openai_api_key.trim().to_string();
-    }
-    settings.model = update.model;
-    settings.shortcut = update.shortcut;
-    settings.auto_paste = update.auto_paste;
+    settings.apply_update(update);
 
     if settings.shortcut != old_shortcut {
         rebind_shortcut(&app, &old_shortcut, &settings.shortcut)?;
@@ -153,6 +149,45 @@ pub fn show_welcome_window(app: &AppHandle) {
         let _ = window.show();
         let _ = window.set_focus();
     }
+}
+
+/// Version of a newer release published on GitHub, or `None` if up to date.
+#[tauri::command]
+pub async fn check_update(app: AppHandle) -> Result<Option<String>, String> {
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    let update = updater.check().await.map_err(|e| e.to_string())?;
+    Ok(update.map(|u| u.version))
+}
+
+/// Download the newer release (signature-checked against the public key in
+/// `tauri.conf.json`), install it and restart.
+#[tauri::command]
+pub async fn install_update(app: AppHandle) -> Result<(), String> {
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    let Some(update) = updater.check().await.map_err(|e| e.to_string())? else {
+        return Ok(());
+    };
+    update
+        .download_and_install(|_, _| {}, || {})
+        .await
+        .map_err(|e| format!("actualizando: {e}"))?;
+    app.restart();
+}
+
+/// On launch, look for a newer release and, if there is one, open the
+/// settings window where the update banner offers to install it.
+pub fn check_update_on_launch(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        match check_update(app.clone()).await {
+            Ok(Some(version)) => {
+                eprintln!("[whisperaround] update available: {version}");
+                show_settings_window(&app);
+            }
+            Ok(None) => {}
+            Err(e) => eprintln!("[whisperaround] update check failed: {e}"),
+        }
+    });
 }
 
 /// Show and focus the standalone settings window.

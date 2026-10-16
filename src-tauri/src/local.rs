@@ -228,3 +228,15 @@ fn command(program: &Path) -> Command {
     }
     cmd
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_prefixed_ids_are_local() {
+        assert_eq!(model_name("local:medium"), Some("medium"));
+        assert_eq!(model_name("whisper-1"), None);
+        assert_eq!(model_name("gpt-4o-mini-transcribe"), None);
+    }
+}

@@ -12,9 +12,12 @@ jobs:
   build:
     runs-on: windows-latest
     # tauri-action creates the GitHub release, which needs write access to repo
-    # contents (the default GITHUB_TOKEN is read-only otherwise).
+    # contents (the default GITHUB_TOKEN is read-only otherwise). The id-token /
+    # attestations scopes sign the build-provenance attestation.
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
 
@@ -44,8 +47,37 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signs the updater artifacts; the app only installs updates whose
+          # signature matches the public key in tauri.conf.json.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "WhisperAround ${{ github.ref_name }}"
-          releaseDraft: true
+          releaseBody: "Descarga `WhisperAround_*_x64-setup.exe` e instálalo. Guía y notas de seguridad en el [README](https://github.com/dansaround/whisperaround#readme)."
+          # Published right away: `releases/latest` (README link + updater
+          # feed) only sees non-draft releases.
+          releaseDraft: false
           prerelease: false
+
+      # Lets anyone check an installer was built here from this tag:
+      #   gh attestation verify <file> -R dansaround/whisperaround
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
+
+      # Opens the winget-pkgs PR for the new version. Needs a classic PAT with
+      # `public_repo` saved as the WINGET_TOKEN secret; skipped without it.
+      - name: Publish to winget
+        if: env.WINGET_TOKEN != ''
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        uses: vedantmgoyal9/winget-releaser@main
+        with:
+          identifier: dansaround.WhisperAround
+          installers-regex: '_x64-setup\.exe$'
+          release-tag: ${{ github.ref_name }}
+          token: ${{ secrets.WINGET_TOKEN }}

@@ -205,3 +205,55 @@ pub fn encode_wav(rec: &Recording) -> Result<Vec<u8>> {
     }
     Ok(cursor.into_inner())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn level_maps_decibels_to_unit_range() {
+        assert_eq!(normalize_level(0.0), 0.0);
+        assert_eq!(normalize_level(0.001), 0.0); // -60 dBFS: silence
+        assert!((normalize_level(0.01) - 0.25).abs() < 1e-4); // -40 dBFS
+        assert_eq!(normalize_level(1.0), 1.0); // clipping stays at 1
+    }
+
+    #[test]
+    fn push_chunk_appends_and_keeps_loudest_rms() {
+        let buf = Mutex::new(Vec::new());
+        let level = AtomicU32::new(0);
+        push_chunk(&buf, &level, [0.5f32, -0.5].into_iter());
+        push_chunk(&buf, &level, [0.1f32, -0.1].into_iter());
+        assert_eq!(buf.lock().unwrap().len(), 4);
+        assert_eq!(f32::from_bits(level.load(Ordering::Relaxed)), 0.5);
+    }
+
+    #[test]
+    fn wav_is_mono_16_bit_at_the_source_rate() {
+        // Two stereo frames: L/R averaged into one mono sample each.
+        let rec = Recording {
+            samples: vec![1.0, 0.0, -0.5, -0.5],
+            sample_rate: 48_000,
+            channels: 2,
+        };
+        let wav = encode_wav(&rec).unwrap();
+        let mut reader = hound::WavReader::new(std::io::Cursor::new(wav)).unwrap();
+        let spec = reader.spec();
+        assert_eq!((spec.channels, spec.sample_rate, spec.bits_per_sample), (1, 48_000, 16));
+        let samples: Vec<i16> = reader.samples::<i16>().map(Result::unwrap).collect();
+        assert_eq!(samples, vec![i16::MAX / 2, -(i16::MAX / 2)]);
+    }
+
+    #[test]
+    fn wav_clamps_out_of_range_samples() {
+        let rec = Recording {
+            samples: vec![3.0, -3.0],
+            sample_rate: 16_000,
+            channels: 1,
+        };
+        let wav = encode_wav(&rec).unwrap();
+        let mut reader = hound::WavReader::new(std::io::Cursor::new(wav)).unwrap();
+        let samples: Vec<i16> = reader.samples::<i16>().map(Result::unwrap).collect();
+        assert_eq!(samples, vec![i16::MAX, -i16::MAX]);
+    }
+}

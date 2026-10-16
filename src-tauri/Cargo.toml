@@ -1,6 +1,6 @@
 [package]
 name = "whisperaround"
-version = "0.1.4"
+version = "0.1.5"
 description = "Superwhisper but open sourced — instant voice dictation via OpenAI Whisper."
 authors = ["WhisperAround"]
 edition = "2021"
@@ -37,10 +37,15 @@ reqwest = { version = "0.12", default-features = false, features = [
   "json",
   "rustls-tls",
 ] }
+tauri-plugin-updater = { version = "2.9", default-features = false, features = ["rustls-tls"] }
 
 # Atomic move+resize of the floating window (avoids a one-frame jump).
 [target.'cfg(windows)'.dependencies]
+keyring = { version = "3", default-features = false, features = ["windows-native"] }
 windows = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", default-features = false, features = ["apple-native"] }
 
 [profile.release]
 # Optimize for a small binary to hit the < 20 MB target.
