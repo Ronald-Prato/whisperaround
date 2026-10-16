@@ -30,7 +30,18 @@ const previewListeners = new Set<(e: StatusEvent) => void>();
 function previewEmit(status: AppStatus) {
   previewStatus = status;
   previewListeners.forEach((fn) => fn({ status }));
+  // Fake a speech-like mic level while "recording".
+  clearInterval(previewLevelTimer);
+  if (status === "recording") {
+    previewLevelTimer = setInterval(() => {
+      const t = Date.now() / 1000;
+      const level = Math.max(0, Math.sin(t * 3) * 0.5 + Math.random() * 0.5);
+      previewLevelListeners.forEach((fn) => fn(level));
+    }, 50);
+  }
 }
+let previewLevelTimer: ReturnType<typeof setInterval> | undefined;
+const previewLevelListeners = new Set<(level: number) => void>();
 
 /** Read the current pipeline status (used to seed the UI on mount). */
 export function getStatus(): Promise<AppStatus> {
@@ -80,6 +91,33 @@ export function onStatus(handler: (e: StatusEvent) => void): Promise<UnlistenFn>
   return listen<StatusEvent>("status", (event) => handler(event.payload));
 }
 
+/** Subscribe to the live mic level (0..1, ~20 Hz) while recording. */
+export function onLevel(handler: (level: number) => void): Promise<UnlistenFn> {
+  if (!IN_TAURI) {
+    previewLevelListeners.add(handler);
+    return Promise.resolve(() => previewLevelListeners.delete(handler));
+  }
+  return listen<number>("level", (event) => handler(event.payload));
+}
+
+/** Version of the system Python 3 (e.g. "Python 3.12.7"), or null if missing. */
+export function checkPython(): Promise<string | null> {
+  if (!IN_TAURI) return Promise.resolve(null);
+  return invoke<string | null>("check_python");
+}
+
+/** Open the Python install page (Microsoft Store on Windows). */
+export function openPythonInstall(): Promise<void> {
+  if (!IN_TAURI) return Promise.resolve();
+  return invoke("open_python_install");
+}
+
+/** Dismiss the first-launch welcome window for good. */
+export function finishOnboarding(): Promise<void> {
+  if (!IN_TAURI) return Promise.resolve();
+  return invoke("finish_onboarding");
+}
+
 /** Update only the transcription model (pill model dropdown). */
 export function setModel(model: string): Promise<void> {
   if (!IN_TAURI) {
@@ -110,8 +148,9 @@ export function hideWindow(): Promise<void> {
   return getCurrentWindow().hide();
 }
 
-/** Label of the current Tauri window ("main" pill or "settings"). */
+/** Label of the current Tauri window ("main" pill, "settings" or "welcome"). */
 export function currentWindowLabel(): string {
-  if (!IN_TAURI) return "main";
+  // Browser preview: `?window=welcome` previews another window.
+  if (!IN_TAURI) return new URLSearchParams(location.search).get("window") ?? "main";
   return getCurrentWindow().label;
 }

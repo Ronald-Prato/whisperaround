@@ -4,6 +4,7 @@
   import {
     getStatus,
     onStatus,
+    onLevel,
     toggleRecording,
     loadSettings,
     setModel,
@@ -25,6 +26,14 @@
   /** Button whose text tooltip is shown (only after a sustained hover). */
   let tooltipBtn = $state<null | "model" | "record" | "expand">(null);
   let menuOpen = $state(false);
+
+  // Live mic level → waveform. Each bar shows one recent level sample; newest
+  // in the middle, older ones spreading outward, so speech ripples from the
+  // center.
+  /** Bar order: index into `levels` (0 = newest) for each bar left→right. */
+  const BAR_AGE = [2, 1, 0, 1, 2];
+  const HISTORY = 3;
+  let levels = $state<number[]>(Array(HISTORY).fill(0));
 
   // Show the icon row immediately on hover, but only reveal the *text* tooltip
   // after a sustained hover, and delay collapsing back to the empty pill so a
@@ -134,6 +143,12 @@
     const unlisten = onStatus((e) => {
       status = e.status;
       errorMessage = e.status === "error" ? e.message ?? "Error desconocido" : null;
+      if (e.status !== "recording") levels = Array(HISTORY).fill(0);
+    });
+    const unlistenLevel = onLevel((l) => {
+      // Rise instantly, decay softly so syllables don't flicker.
+      const next = Math.max(l, levels[0] * 0.6);
+      levels = [next, ...levels.slice(0, HISTORY - 1)];
     });
 
     const onKey = (e: KeyboardEvent) => {
@@ -146,6 +161,7 @@
 
     return () => {
       unlisten.then((fn) => fn());
+      unlistenLevel.then((fn) => fn());
       window.removeEventListener("keydown", onKey);
       clearTimeout(leaveTimer);
       clearTimeout(tipTimer);
@@ -220,7 +236,7 @@
 
 {#snippet waveform()}
   <span class="waveform" aria-hidden="true">
-    {#each Array(5) as _, i (i)}<span style="--i:{i}"></span>{/each}
+    {#each BAR_AGE as age, i (i)}<span style="--l:{levels[age] * (1 - age * 0.18)}"></span>{/each}
   </span>
 {/snippet}
 
@@ -633,17 +649,9 @@
     border-radius: 2px;
     background: #f1f1f4;
     transform-origin: center;
-    animation: bar 0.9s ease-in-out infinite;
-    animation-delay: calc(var(--i) * 0.12s);
-  }
-  @keyframes bar {
-    0%,
-    100% {
-      transform: scaleY(0.3);
-    }
-    50% {
-      transform: scaleY(1);
-    }
+    /* Silence keeps a small dot-like bar; speech stretches it to full height. */
+    transform: scaleY(calc(0.17 + 0.83 * var(--l, 0)));
+    transition: transform 90ms ease-out;
   }
 
   .spinner {

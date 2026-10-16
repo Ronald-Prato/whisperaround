@@ -35,6 +35,7 @@ pub fn run() {
             let loaded = settings::load(&app.handle());
             let shortcut_str = loaded.shortcut.clone();
             let model = loaded.model.clone();
+            let onboarded = loaded.onboarded;
             *app.state::<AppState>().settings.lock().unwrap() = loaded;
             // Preload a local faster-whisper model if it is the active one.
             commands::warm_local_model(&app.handle(), &model);
@@ -49,6 +50,9 @@ pub fn run() {
 
             setup_global_shortcut(app, &shortcut_str)?;
             setup_tray(app)?;
+            if !onboarded {
+                commands::show_welcome_window(&app.handle());
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -57,6 +61,11 @@ pub fn run() {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 let _ = window.hide();
                 api.prevent_close();
+                // Closing the welcome window counts as dismissing it.
+                if window.label() == "welcome" {
+                    let app = window.app_handle();
+                    let _ = commands::finish_onboarding(app.clone(), app.state::<AppState>());
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -67,6 +76,9 @@ pub fn run() {
             commands::set_model,
             commands::fit_window,
             commands::open_settings,
+            commands::check_python,
+            commands::open_python_install,
+            commands::finish_onboarding,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -100,7 +112,7 @@ fn setup_global_shortcut(
     Ok(())
 }
 
-/// Build a minimal tray (Show pill / Settings / Quit) so the app lives in the
+/// Build a minimal tray (Show pill / Settings / Welcome / Quit) so the app lives in the
 /// background. Left-clicking the icon shows the pill.
 fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // "Toggle Recording" works regardless of window focus, so it doubles as a
@@ -108,8 +120,9 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let toggle = MenuItem::with_id(app, "toggle", "Toggle Recording", true, None::<&str>)?;
     let show = MenuItem::with_id(app, "show", "Mostrar píldora", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "Ajustes…", true, None::<&str>)?;
+    let welcome = MenuItem::with_id(app, "welcome", "Bienvenida…", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Salir", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&toggle, &show, &settings, &quit])?;
+    let menu = Menu::with_items(app, &[&toggle, &show, &settings, &welcome, &quit])?;
 
     let icon = app
         .default_window_icon()
@@ -125,6 +138,7 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             "toggle" => pipeline::toggle(app),
             "show" => show_pill(app),
             "settings" => commands::show_settings_window(app),
+            "welcome" => commands::show_welcome_window(app),
             "quit" => app.exit(0),
             _ => {}
         })

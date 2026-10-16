@@ -3,8 +3,7 @@
 //! Driven both by the global shortcut handler and the manual `toggle_recording`
 //! command, so the logic lives here in one place.
 
-use tauri::Manager;
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::settings::Settings;
 use crate::state::{set_status, AppState, AppStatus};
@@ -28,7 +27,12 @@ pub fn toggle(app: &AppHandle) {
 
 fn start(app: &AppHandle) {
     let state = app.state::<AppState>();
-    match recorder::Recorder::start() {
+    // Live input level for the pill's waveform (`level` event, 0.0..=1.0).
+    let level_app = app.clone();
+    let on_level = move |level: f32| {
+        let _ = level_app.emit("level", level);
+    };
+    match recorder::Recorder::start(on_level) {
         Ok(rec) => {
             *state.recorder.lock().unwrap() = Some(rec);
             set_status(app, AppStatus::Recording, None);

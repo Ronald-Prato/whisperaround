@@ -19,6 +19,9 @@ pub struct Settings {
     pub shortcut: String,
     #[serde(default = "default_auto_paste")]
     pub auto_paste: bool,
+    /// Whether the first-launch welcome window has been dismissed.
+    #[serde(default)]
+    pub onboarded: bool,
 }
 
 fn default_model() -> String {
@@ -38,6 +41,7 @@ impl Default for Settings {
             model: default_model(),
             shortcut: default_shortcut(),
             auto_paste: default_auto_paste(),
+            onboarded: false,
         }
     }
 }

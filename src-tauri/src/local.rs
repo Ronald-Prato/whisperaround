@@ -160,15 +160,37 @@ fn ensure_venv(app: &AppHandle) -> Result<PathBuf> {
     Ok(python)
 }
 
-/// Create the venv with the first system Python that works.
-fn create_venv(venv: &Path) -> Result<()> {
-    let candidates: &[(&str, &[&str])] = if cfg!(windows) {
+/// System Python launchers to try, in order of preference.
+fn python_candidates() -> &'static [(&'static str, &'static [&'static str])] {
+    if cfg!(windows) {
         &[("py", &["-3"]), ("python", &[]), ("python3", &[])]
     } else {
         &[("python3", &[]), ("python", &[])]
-    };
+    }
+}
+
+/// Version string (e.g. `"Python 3.12.7"`) of the first working system
+/// Python 3, or `None`. On Windows the Microsoft Store `python.exe` alias that
+/// exists before Python is installed exits with an error, so it counts as
+/// missing.
+pub fn detect_python() -> Option<String> {
+    python_candidates().iter().find_map(|(exe, pre)| {
+        let out = command(Path::new(exe))
+            .args(*pre)
+            .arg("--version")
+            .stdin(Stdio::null())
+            .output()
+            .ok()?;
+        // Python 2 printed its version on stderr; 3.x uses stdout.
+        let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        (out.status.success() && text.starts_with("Python 3")).then_some(text)
+    })
+}
+
+/// Create the venv with the first system Python that works.
+fn create_venv(venv: &Path) -> Result<()> {
     let mut last_err = anyhow!("no se encontró Python");
-    for (exe, pre) in candidates {
+    for (exe, pre) in python_candidates() {
         let mut cmd = command(Path::new(exe));
         cmd.args(*pre).arg("-m").arg("venv").arg(venv);
         match run(&mut cmd, "creando venv") {
@@ -177,7 +199,7 @@ fn create_venv(venv: &Path) -> Result<()> {
         }
     }
     Err(anyhow!(
-        "faster-whisper necesita Python 3 instalado ({last_err})"
+        "los modelos locales necesitan Python 3: instálalo desde la Microsoft Store (bandeja › Bienvenida) ({last_err})"
     ))
 }
 

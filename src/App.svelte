@@ -1,16 +1,22 @@
 <script lang="ts">
   import Pill from "./lib/Pill.svelte";
   import Settings from "./lib/Settings.svelte";
+  import Welcome from "./lib/Welcome.svelte";
   import { currentWindowLabel } from "./lib/ipc";
 
-  // One bundle, two windows: the floating pill ("main") and the standalone,
-  // decorated settings window ("settings"). Route by the window label.
+  // One bundle, three windows: the floating pill ("main"), the standalone
+  // settings window ("settings") and the first-launch welcome ("welcome").
+  // Route by the window label.
   const label = currentWindowLabel();
 </script>
 
 {#if label === "settings"}
   <main class="settings-window">
     <Settings />
+  </main>
+{:else if label === "welcome"}
+  <main class="settings-window">
+    <Welcome />
   </main>
 {:else}
   <Pill />

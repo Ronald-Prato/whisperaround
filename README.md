@@ -75,6 +75,13 @@ pnpm tauri dev     # abre la ventana vía WSLg
 2. Pulsa el atajo global (por defecto `Ctrl+Shift+X`) para empezar a grabar.
 3. Pulsa de nuevo para detener: se transcribe y el texto se pega solo.
 
+La primera vez que se abre aparece una ventana de **Bienvenida** que comprueba
+si hay Python 3 instalado (solo lo necesitan los modelos locales faster-whisper)
+y, si falta, ofrece un botón para abrir la Microsoft Store. Se puede volver a
+abrir desde el tray (**Bienvenida…**).
+
+Mientras graba, la waveform de la píldora refleja el nivel real del micrófono.
+
 El indicador muestra `Listo` / `Grabando…` / `Procesando…`. Cerrar la ventana la
 oculta en la bandeja; usa **Salir** desde el tray para terminar.
 

@@ -106,6 +106,55 @@ pub fn fit_window(app: AppHandle, width: f64, height: f64) {
     }
 }
 
+/// Version of the system Python 3 (e.g. `"Python 3.12.7"`), or `None` if it
+/// is missing. Only local faster-whisper models need it. Runs off the main
+/// thread since probing the launchers spawns processes.
+#[tauri::command]
+pub async fn check_python() -> Option<String> {
+    tauri::async_runtime::spawn_blocking(local::detect_python)
+        .await
+        .ok()
+        .flatten()
+}
+
+/// Microsoft Store page for Python 3.12 (well covered by faster-whisper wheels).
+const PYTHON_STORE_URL: &str = "ms-windows-store://pdp/?productid=9NCVDN91XZQP";
+const PYTHON_DOWNLOAD_URL: &str = "https://www.python.org/downloads/";
+
+/// Open the Python install page: the Microsoft Store on Windows, python.org
+/// elsewhere.
+#[tauri::command]
+pub fn open_python_install() -> Result<(), String> {
+    let result = if cfg!(windows) {
+        std::process::Command::new("explorer").arg(PYTHON_STORE_URL).spawn()
+    } else if cfg!(target_os = "macos") {
+        std::process::Command::new("open").arg(PYTHON_DOWNLOAD_URL).spawn()
+    } else {
+        std::process::Command::new("xdg-open").arg(PYTHON_DOWNLOAD_URL).spawn()
+    };
+    result.map(|_| ()).map_err(|e| format!("no se pudo abrir la tienda: {e}"))
+}
+
+/// Dismiss the welcome window for good (persisted in settings).
+#[tauri::command]
+pub fn finish_onboarding(app: AppHandle, state: State<AppState>) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+    settings.onboarded = true;
+    settings::save(&app, &settings).map_err(|e| e.to_string())?;
+    if let Some(window) = app.get_webview_window("welcome") {
+        let _ = window.hide();
+    }
+    Ok(())
+}
+
+/// Reveal the welcome window (first launch, or from the tray).
+pub fn show_welcome_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("welcome") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
 /// Show and focus the standalone settings window.
 #[tauri::command]
 pub fn open_settings(app: AppHandle) {

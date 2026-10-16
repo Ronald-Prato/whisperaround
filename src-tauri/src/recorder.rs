@@ -3,11 +3,14 @@
 //! `cpal::Stream` is `!Send`, so the stream is owned by a dedicated thread. The
 //! [`Recorder`] handle communicates with that thread over channels: it waits for
 //! the stream to start (surfacing device errors synchronously) and signals it to
-//! stop, after which the captured samples are returned.
+//! stop, after which the captured samples are returned. While capturing, the
+//! thread also reports the input level so the UI can draw a live waveform.
 
-use std::sync::mpsc::{self, Sender};
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::mpsc::{self, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
+use std::time::Duration;
 
 use anyhow::{anyhow, Result};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -25,15 +28,48 @@ pub struct Recorder {
     handle: JoinHandle<Result<Recording>>,
 }
 
+/// How often the input level is reported while recording.
+const LEVEL_INTERVAL: Duration = Duration::from_millis(50);
+
+/// Append a converted chunk to the buffer and raise the pending level to the
+/// chunk's RMS (the reporter resets it after each read, so it holds the
+/// loudest chunk since the last report).
+fn push_chunk(buf: &Mutex<Vec<f32>>, level: &AtomicU32, chunk: impl Iterator<Item = f32>) {
+    let mut b = buf.lock().unwrap();
+    let start = b.len();
+    b.extend(chunk);
+    let new = &b[start..];
+    if new.is_empty() {
+        return;
+    }
+    let rms = (new.iter().map(|s| s * s).sum::<f32>() / new.len() as f32).sqrt();
+    if rms > f32::from_bits(level.load(Ordering::Relaxed)) {
+        level.store(rms.to_bits(), Ordering::Relaxed);
+    }
+}
+
+/// Map an RMS amplitude to a perceptual `0.0..=1.0` level (-50 dBFS → 0,
+/// -10 dBFS → 1), so normal speech fills the bars instead of barely moving them.
+fn normalize_level(rms: f32) -> f32 {
+    if rms <= 0.0 {
+        return 0.0;
+    }
+    ((20.0 * rms.log10() + 50.0) / 40.0).clamp(0.0, 1.0)
+}
+
 impl Recorder {
     /// Open the default input device and start capturing. Returns once the
     /// stream is actually running (or with an error if it could not start).
-    pub fn start() -> Result<Recorder> {
+    /// `on_level` is called every [`LEVEL_INTERVAL`] with the normalized input
+    /// level from the capture thread.
+    pub fn start(on_level: impl Fn(f32) + Send + 'static) -> Result<Recorder> {
         let (stop_tx, stop_rx) = mpsc::channel::<()>();
         let (ready_tx, ready_rx) = mpsc::channel::<Result<()>>();
 
         let handle = thread::spawn(move || -> Result<Recording> {
             // Build the stream; report any setup error back to `start()`.
+            let level = Arc::new(AtomicU32::new(0));
+            let level_cb = level.clone();
             let setup = (|| -> Result<(cpal::Stream, Arc<Mutex<Vec<f32>>>, u32, u16)> {
                 let host = cpal::default_host();
                 let device = host
@@ -56,7 +92,7 @@ impl Recorder {
                     cpal::SampleFormat::F32 => device.build_input_stream(
                         &stream_config,
                         move |data: &[f32], _: &_| {
-                            buf_cb.lock().unwrap().extend_from_slice(data);
+                            push_chunk(&buf_cb, &level_cb, data.iter().copied());
                         },
                         err_fn,
                         None,
@@ -64,8 +100,11 @@ impl Recorder {
                     cpal::SampleFormat::I16 => device.build_input_stream(
                         &stream_config,
                         move |data: &[i16], _: &_| {
-                            let mut b = buf_cb.lock().unwrap();
-                            b.extend(data.iter().map(|&s| s as f32 / i16::MAX as f32));
+                            push_chunk(
+                                &buf_cb,
+                                &level_cb,
+                                data.iter().map(|&s| s as f32 / i16::MAX as f32),
+                            );
                         },
                         err_fn,
                         None,
@@ -73,8 +112,9 @@ impl Recorder {
                     cpal::SampleFormat::U16 => device.build_input_stream(
                         &stream_config,
                         move |data: &[u16], _: &_| {
-                            let mut b = buf_cb.lock().unwrap();
-                            b.extend(
+                            push_chunk(
+                                &buf_cb,
+                                &level_cb,
                                 data.iter()
                                     .map(|&s| (s as f32 / u16::MAX as f32) * 2.0 - 1.0),
                             );
@@ -101,8 +141,16 @@ impl Recorder {
                 }
             };
 
-            // Capture until stop is signalled.
-            let _ = stop_rx.recv();
+            // Capture until stop is signalled, reporting the level meanwhile.
+            loop {
+                match stop_rx.recv_timeout(LEVEL_INTERVAL) {
+                    Err(RecvTimeoutError::Timeout) => {
+                        let rms = f32::from_bits(level.swap(0, Ordering::Relaxed));
+                        on_level(normalize_level(rms));
+                    }
+                    _ => break,
+                }
+            }
             drop(stream); // stops the stream and flushes callbacks
 
             let samples = Arc::try_unwrap(buffer)
