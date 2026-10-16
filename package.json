@@ -11,10 +11,12 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.1.1"
+    "@tauri-apps/api": "^2.12.4"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^6.2.4",
