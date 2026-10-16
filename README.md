@@ -74,6 +74,22 @@ descrito en [Seguridad y privacidad](#seguridad-y-privacidad): la transcripción
 que pides (OpenAI), la preparación de modelos locales (PyPI / Hugging Face) y la
 búsqueda de actualizaciones (GitHub).
 
+### Code signing policy
+
+Windows releases will be signed with free code signing provided by
+[SignPath.io](https://about.signpath.io/), certificate by
+[SignPath Foundation](https://signpath.org/) (application in progress; current
+installers are unsigned).
+
+- Installers are built only by [GitHub Actions](.github/workflows/release.yml)
+  from a tag of this repository, with a verifiable build-provenance attestation.
+- Committers and reviewers: [@dansaround](https://github.com/dansaround).
+- Approvers (each signing request): [@dansaround](https://github.com/dansaround).
+- Privacy: this program will not transfer any information to other networked
+  systems unless specifically requested by the user, except as documented in
+  [SECURITY.md](SECURITY.md) (the transcription request to OpenAI, downloading
+  local models from PyPI / Hugging Face, and the update check on GitHub).
+
 ---
 
 ## Para desarrolladores
