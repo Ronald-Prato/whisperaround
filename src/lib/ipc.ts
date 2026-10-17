@@ -7,7 +7,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getVersion } from "@tauri-apps/api/app";
-import type { AppStatus, SettingsView, SettingsUpdate, StatusEvent } from "./types";
+import type { AppStatus, Permissions, SettingsView, SettingsUpdate, StatusEvent } from "./types";
 
 /**
  * Whether the Tauri runtime is present. When running the Vite dev server in a
@@ -16,6 +16,9 @@ import type { AppStatus, SettingsView, SettingsUpdate, StatusEvent } from "./typ
  */
 const IN_TAURI =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+/** Running on macOS (WKWebView reports "Macintosh"). */
+export const IS_MAC = typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent);
 
 /** Mock settings used only for the browser UI preview. */
 const previewSettings: SettingsView = {
@@ -107,10 +110,22 @@ export function checkPython(): Promise<string | null> {
   return invoke<string | null>("check_python");
 }
 
-/** Open the Python install page (Microsoft Store on Windows). */
+/** Open the Python install page (Microsoft Store on Windows, python.org elsewhere). */
 export function openPythonInstall(): Promise<void> {
   if (!IN_TAURI) return Promise.resolve();
   return invoke("open_python_install");
+}
+
+/** macOS microphone / Accessibility permissions, or null where none are needed. */
+export function checkPermissions(): Promise<Permissions | null> {
+  if (!IN_TAURI) return Promise.resolve(null);
+  return invoke<Permissions | null>("check_permissions");
+}
+
+/** Show the macOS prompt for a permission, or its System Settings pane. */
+export function requestPermission(kind: "microphone" | "accessibility"): Promise<void> {
+  if (!IN_TAURI) return Promise.resolve();
+  return invoke("request_permission", { kind });
 }
 
 /** Installed app version (e.g. "0.1.5"). */

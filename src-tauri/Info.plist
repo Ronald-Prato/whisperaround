@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Merged by Tauri into the macOS bundle's Info.plist. Without it macOS
+	     refuses microphone access to the app. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>WhisperAround graba tu voz mientras dictas para transcribirla a texto.</string>
+	<!-- Menu-bar app: no Dock icon (the pill + tray icon are the UI). -->
+	<key>LSUIElement</key>
+	<true/>
+</dict>
+</plist>

@@ -34,3 +34,9 @@ export interface SettingsUpdate {
   shortcut: string;
   autoPaste: boolean;
 }
+
+/** macOS privacy permissions (`check_permissions`); null on other platforms. */
+export interface Permissions {
+  microphone: "undetermined" | "denied" | "granted";
+  accessibility: boolean;
+}

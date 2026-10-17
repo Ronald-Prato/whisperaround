@@ -128,7 +128,46 @@ pub fn open_python_install() -> Result<(), String> {
     } else {
         std::process::Command::new("xdg-open").arg(PYTHON_DOWNLOAD_URL).spawn()
     };
-    result.map(|_| ()).map_err(|e| format!("no se pudo abrir la tienda: {e}"))
+    result.map(|_| ()).map_err(|e| format!("no se pudo abrir la página de Python: {e}"))
+}
+
+/// macOS privacy permissions (microphone / Accessibility) for the welcome
+/// window; `None` on other platforms, where nothing has to be granted.
+#[tauri::command]
+pub fn check_permissions() -> Option<serde_json::Value> {
+    #[cfg(target_os = "macos")]
+    return serde_json::to_value(crate::macos::permissions()).ok();
+    #[cfg(not(target_os = "macos"))]
+    None
+}
+
+/// Ask macOS for a permission (`"microphone"` or `"accessibility"`). Once the
+/// user has answered the system prompt, only System Settings can change it, so
+/// that pane is opened instead.
+#[tauri::command]
+pub fn request_permission(kind: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        use crate::macos::{self, MicPermission};
+        match kind.as_str() {
+            "microphone" if macos::microphone() == MicPermission::Undetermined => {
+                macos::request_microphone()
+            }
+            "microphone" => macos::open_privacy_settings("Privacy_Microphone"),
+            "accessibility" => {
+                if !macos::request_accessibility() {
+                    macos::open_privacy_settings("Privacy_Accessibility");
+                }
+            }
+            other => return Err(format!("permiso desconocido: {other}")),
+        }
+        Ok(())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = kind;
+        Ok(())
+    }
 }
 
 /// Dismiss the welcome window for good (persisted in settings).

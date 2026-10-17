@@ -11,6 +11,7 @@
     fitWindow,
     openSettings,
     startDragging,
+    IS_MAC,
   } from "./ipc";
   import { MODELS } from "./models";
   import type { AppStatus } from "./types";
@@ -123,11 +124,24 @@
     if (grown.w !== t.w || grown.h !== t.h) shrinkTimer = setTimeout(() => applyWindow(t), MORPH_MS);
   });
 
+  /** macOS modifier glyphs for the shortcut chips. */
+  const MAC_KEYS: Record<string, string> = {
+    Shift: "⇧",
+    Alt: "⌥",
+    Option: "⌥",
+    Ctrl: "⌃",
+    Control: "⌃",
+    Cmd: "⌘",
+    Command: "⌘",
+    Super: "⌘",
+  };
+
   /** Pretty-print the configured shortcut into key chips. */
   function keyParts(s: string): string[] {
     return s
       .split("+")
-      .map((k) => (k === "CmdOrCtrl" || k === "CommandOrControl" ? "Ctrl" : k));
+      .map((k) => (k === "CmdOrCtrl" || k === "CommandOrControl" ? (IS_MAC ? "⌘" : "Ctrl") : k))
+      .map((k) => (IS_MAC ? (MAC_KEYS[k] ?? k) : k));
   }
 
   onMount(() => {

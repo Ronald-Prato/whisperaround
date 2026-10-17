@@ -5116,10 +5116,13 @@ name = "whisperaround"
 version = "0.1.6"
 dependencies = [
  "anyhow",
+ "block2 0.6.2",
  "cpal",
  "enigo",
  "hound",
  "keyring",
+ "objc2 0.6.4",
+ "objc2-foundation",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
