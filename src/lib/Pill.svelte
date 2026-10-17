@@ -10,6 +10,7 @@
     setModel,
     fitWindow,
     openSettings,
+    startDragging,
   } from "./ipc";
   import { MODELS } from "./models";
   import type { AppStatus } from "./types";
@@ -169,6 +170,42 @@
     };
   });
 
+  // Drag the window from anywhere on the pill that isn't a control. The drag
+  // only starts once the pointer moves a few px, so a plain click (e.g. on the
+  // recording pill to stop) still registers as a click.
+  const DRAG_THRESHOLD = 4;
+  let dragFrom: { x: number; y: number } | null = null;
+  /** Set when a drag starts so its release isn't taken as a click; any new
+   *  press clears it (the OS may or may not deliver that release). */
+  let suppressClick = false;
+
+  function pressStage(e: MouseEvent) {
+    suppressClick = false;
+    const target = e.target as Element;
+    if (e.button !== 0 || !target.closest(".shell, .tooltip")) return;
+    if (target.closest("button, input, select, [role=menu]")) return;
+    dragFrom = { x: e.screenX, y: e.screenY };
+  }
+
+  function moveStage(e: MouseEvent) {
+    enterPill();
+    if (!dragFrom) return;
+    if (!(e.buttons & 1)) {
+      dragFrom = null;
+      return;
+    }
+    if (Math.hypot(e.screenX - dragFrom.x, e.screenY - dragFrom.y) < DRAG_THRESHOLD) return;
+    dragFrom = null;
+    suppressClick = true;
+    startDragging();
+  }
+
+  /** Click on the recording pill stops it, unless that click ended a drag. */
+  function clickShell() {
+    if (suppressClick) suppressClick = false;
+    else if (visual === "rec") record();
+  }
+
   /** Also bound to mousemove: after collapsing the panel the cursor may already
    *  be inside the window, where no new mouseenter would ever fire. */
   function enterPill() {
@@ -282,7 +319,17 @@
   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>
 {/snippet}
 
-<div class="stage" role="group" onmouseenter={enterPill} onmousemove={enterPill} onmouseleave={leavePill}>
+<!-- Mouse handlers here only implement window dragging; every control inside is a real button. -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<div
+  class="stage"
+  role="group"
+  onmouseenter={enterPill}
+  onmousemove={moveStage}
+  onmousedown={pressStage}
+  onmouseup={() => (dragFrom = null)}
+  onmouseleave={leavePill}
+>
   <!--
     One persistent shell for every state. Its size/radius morph on a spring
     while each state's content cross-fades in its own layer, so changes read
@@ -292,10 +339,10 @@
   <div
     class="shell {status} {visual}"
     style="width:{shell.w}px;height:{shell.h}px;top:{shell.top}px;border-radius:{shell.r}px"
-    data-tauri-drag-region
+   
     title={visual === "rec" ? "Detener" : undefined}
     aria-label={busy ? STATUS_TEXT[status] : undefined}
-    onclick={visual === "rec" ? record : undefined}
+    onclick={clickShell}
   >
     <!-- Hover: model · record · expand -->
     <div class="layer" class:on={visual === "icons"} inert={visual !== "icons"}>
@@ -334,35 +381,35 @@
     </div>
 
     <!-- Recording: live dot + waveform (click to stop) -->
-    <div class="layer" class:on={visual === "rec"} data-tauri-drag-region>
+    <div class="layer" class:on={visual === "rec"}>
       <span class="rec-dot" aria-hidden="true"></span>
       {@render waveform()}
     </div>
 
     <!-- Processing -->
-    <div class="layer" class:on={visual === "proc"} data-tauri-drag-region>
+    <div class="layer" class:on={visual === "proc"}>
       {@render spinner()}
     </div>
 
     <!-- Expanded panel -->
-    <div class="layer panel-layer" class:on={visual === "panel"} inert={visual !== "panel"} data-tauri-drag-region>
+    <div class="layer panel-layer" class:on={visual === "panel"} inert={visual !== "panel"}>
       <button class="icon-btn collapse" title="Colapsar (Esc)" aria-label="Colapsar" onclick={collapse}>
         {@render collapseIcon()}
       </button>
 
-      <div class="panel-body" data-tauri-drag-region>
-        <div class="pb-layer" class:on={status === "idle"} data-tauri-drag-region>
+      <div class="panel-body">
+        <div class="pb-layer" class:on={status === "idle"}>
           <p class="panel-status">{STATUS_TEXT.idle}</p>
         </div>
-        <div class="pb-layer" class:on={status === "recording"} data-tauri-drag-region>
+        <div class="pb-layer" class:on={status === "recording"}>
           <p class="panel-status">{STATUS_TEXT.recording}</p>
           <div class="wave-big">{@render waveform()}</div>
         </div>
-        <div class="pb-layer" class:on={status === "processing"} data-tauri-drag-region>
+        <div class="pb-layer" class:on={status === "processing"}>
           <p class="panel-status">{STATUS_TEXT.processing}</p>
           {@render spinner()}
         </div>
-        <div class="pb-layer" class:on={status === "error"} data-tauri-drag-region>
+        <div class="pb-layer" class:on={status === "error"}>
           <p class="panel-status err">{errorMessage ?? STATUS_TEXT.error}</p>
         </div>
       </div>
@@ -438,6 +485,9 @@
       border-color 0.35s ease,
       box-shadow 0.35s ease;
     will-change: width, height;
+  }
+  .shell {
+    cursor: grab;
   }
   .shell.rec {
     cursor: pointer;

@@ -161,6 +161,12 @@ export function openSettings(): Promise<void> {
   return invoke("open_settings");
 }
 
+/** Start an OS-level drag of the current window (call while the mouse is down). */
+export function startDragging(): Promise<void> {
+  if (!IN_TAURI) return Promise.resolve();
+  return getCurrentWindow().startDragging();
+}
+
 /** Hide the current window to the tray. */
 export function hideWindow(): Promise<void> {
   if (!IN_TAURI) return Promise.resolve();
