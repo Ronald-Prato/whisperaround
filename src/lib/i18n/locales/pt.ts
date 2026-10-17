@@ -270,7 +270,7 @@ const dict: Dict = {
       placeholder: "Definir atalho",
       pressMouseButton: "Pressione o botão do mouse que deseja usar",
       combineModifier: "Combine a tecla modificadora com outra tecla",
-      addModifier: "Adicione uma tecla modificadora (⌘ ⌥ ⌃ ⇧)",
+      addModifier: "Adicione uma tecla modificadora ({mods})",
     },
     mouseButtons: {
       middle: "Clique do meio",
@@ -317,10 +317,12 @@ const dict: Dict = {
       configured: "Configurada",
       missing: "Não definida",
       keySub: "Armazenada nas Chaves do sistema e enviada somente para api.openai.com.",
+      keySubWindows: "Armazenada no Gerenciador de Credenciais do Windows e enviada somente para api.openai.com.",
       replacePlaceholder: "••••••••••••  (substituir)",
       saving: "Salvando…",
       save: "Salvar",
       keySaved: "Chave de API salva nas Chaves",
+      keySavedWindows: "Chave de API salva no Gerenciador de Credenciais",
     },
     activeNote: "O modelo escolhido é aplicado ao seu modo ativo",
     groups: {

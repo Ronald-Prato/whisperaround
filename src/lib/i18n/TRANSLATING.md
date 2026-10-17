@@ -1,8 +1,10 @@
 # Translating WhisperAround
 
-WhisperAround is a macOS menu-bar dictation app. You press a shortcut, speak,
-and the text is transcribed and pasted into whatever app has focus. The UI
-should read like a native macOS system app: short, calm, and precise.
+WhisperAround is a menu-bar / tray dictation app for macOS and Windows. You
+press a shortcut, speak, and the text is transcribed and pasted into whatever
+app has focus. The UI should read like a native system app: short, calm, and
+precise. A few strings have a Windows variant (keys ending in `Windows`);
+those use Microsoft's terms instead of Apple's.
 
 English is the source language. Supported locales:
 
@@ -95,6 +97,7 @@ Keep each term the same everywhere in the app (frontend and backend).
 | **cloud** (model) | Runs on OpenAI's servers over the internet. |
 | **API key** | An OpenAI secret key. Keep the term "API key" in its common localized form (es *clave de API*, pt-BR *chave de API*, fr *clé API*, de *API-Schlüssel*, it *chiave API*, ja *APIキー*, ko *API 키*, zh *API 密钥*). |
 | **keychain** | The macOS Keychain. Use Apple's name: es *llavero*, pt-BR *Chaves*, fr *trousseau*, de *Schlüsselbund*, it *portachiavi*, ja *キーチェーン*, ko *키체인*, zh *钥匙串*. |
+| **Credential Manager** (`*Windows` keys) | Where Windows keeps the API key. Use Microsoft's name: es *Administrador de credenciales*, pt-BR *Gerenciador de Credenciais*, fr *Gestionnaire d'identification*, de *Anmeldeinformationsverwaltung*, it *Gestione credenziali*, ja *資格情報マネージャー*, ko *자격 증명 관리자*, zh *凭据管理器*. |
 | **clipboard** | Use the system term: *portapapeles*, *área de transferência*, *presse-papiers*, *Zwischenablage*, *appunti*, *クリップボード*, *클립보드*, *剪贴板*. |
 | **paste automatically / auto-paste** | After transcribing, the app sends ⌘V to the focused app. |
 | **Accessibility** (permission) | The macOS privacy permission that lets apps control the keyboard. Always use Apple's name for that pane (see §5). |

@@ -311,6 +311,18 @@ pub fn check_permissions() -> Option<serde_json::Value> {
     None
 }
 
+/// Native backdrop behind the settings window (`windowEffects` in
+/// tauri.conf.json): macOS vibrancy, Windows 11 Mica, or `"none"` (opaque).
+#[tauri::command]
+pub fn window_material() -> &'static str {
+    #[cfg(target_os = "macos")]
+    return "vibrancy";
+    #[cfg(windows)]
+    return if crate::win::mica_supported() { "mica" } else { "none" };
+    #[cfg(not(any(target_os = "macos", windows)))]
+    "none"
+}
+
 /// Ask macOS for a permission (`"microphone"` or `"accessibility"`). Once the
 /// user has answered the system prompt, only System Settings can change it, so
 /// that pane is opened instead.

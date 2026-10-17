@@ -20,6 +20,7 @@ import type {
   SoundName,
   StartSound,
   StatusEvent,
+  WindowMaterial,
 } from "./types";
 
 /**
@@ -30,8 +31,25 @@ import type {
 const IN_TAURI =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
+/**
+ * The browser UI preview can pose as another platform with
+ * `?platform=windows` / `?platform=mac`.
+ */
+const PREVIEW_PLATFORM = IN_TAURI || typeof location === "undefined" ? null : new URLSearchParams(location.search).get("platform");
+
 /** Running on macOS (WKWebView reports "Macintosh"). */
-export const IS_MAC = typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent);
+export const IS_MAC = PREVIEW_PLATFORM
+  ? PREVIEW_PLATFORM === "mac"
+  : typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent);
+/** Running on Windows (WebView2 reports "Windows NT"). */
+export const IS_WINDOWS = PREVIEW_PLATFORM
+  ? PREVIEW_PLATFORM === "windows"
+  : typeof navigator !== "undefined" && /Windows/.test(navigator.userAgent);
+/**
+ * Single-modifier and mouse-button shortcuts (`mod:` / `mouse:` bindings)
+ * have a native backend here (`native_input` in the Rust crate).
+ */
+export const NATIVE_SHORTCUTS = IS_MAC || IS_WINDOWS;
 
 // --- Browser preview mocks ----------------------------------------------------
 
@@ -75,7 +93,9 @@ function previewHistory(): History {
     "Send the invoice to Marta and copy finance on the thread.",
     "Necesitamos probar el atajo de push to talk con la tecla comando derecha.",
   ];
-  const apps = ["Slack", "Notes", "Mail", "Cursor", "Messages"];
+  const apps = IS_WINDOWS
+    ? ["Slack", "Notepad", "Outlook", "Cursor", "WhatsApp"]
+    : ["Slack", "Notes", "Mail", "Cursor", "Messages"];
   const entries: HistoryEntry[] = samples.map((text, i) => ({
     id: now - i * 5_400_000,
     ts: now - i * 5_400_000 - (i > 2 ? 86_400_000 : 0),
@@ -225,7 +245,7 @@ export function endShortcutCapture(): Promise<void> {
 export function listInputDevices(): Promise<InputDevice[]> {
   if (!IN_TAURI)
     return Promise.resolve([
-      { name: "MacBook Pro Microphone", isDefault: true },
+      { name: IS_WINDOWS ? "Microphone Array (Realtek(R) Audio)" : "MacBook Pro Microphone", isDefault: true },
       { name: "AirPods Pro", isDefault: false },
       { name: "Shure MV7", isDefault: false },
     ]);
@@ -366,6 +386,15 @@ export function openPythonInstall(): Promise<void> {
 export function checkPermissions(): Promise<Permissions | null> {
   if (!IN_TAURI) return Promise.resolve(IS_MAC ? { microphone: "granted", accessibility: true } : null);
   return invoke<Permissions | null>("check_permissions");
+}
+
+/**
+ * Native backdrop behind the settings window: macOS vibrancy, Windows 11
+ * Mica, or none (the page paints its own opaque background).
+ */
+export function windowMaterial(): Promise<WindowMaterial> {
+  if (!IN_TAURI) return Promise.resolve(IS_MAC ? "vibrancy" : "none");
+  return invoke<WindowMaterial>("window_material");
 }
 
 /** Show the macOS prompt for a permission, or its System Settings pane. */

@@ -10,6 +10,8 @@ mod local;
 mod macos;
 #[cfg(target_os = "macos")]
 mod macos_input;
+#[cfg(any(target_os = "macos", windows))]
+mod native_input;
 mod pipeline;
 mod recorder;
 mod secret;
@@ -18,7 +20,11 @@ mod shortcuts;
 mod sounds;
 mod state;
 mod whisper;
+#[cfg(windows)]
+mod win;
 mod window;
+#[cfg(windows)]
+mod windows_input;
 
 use tauri::{
     menu::{Menu, MenuItem},
@@ -31,7 +37,15 @@ use state::AppState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // Launching the app again while it runs (Start menu, desktop shortcut)
+    // brings up the settings window, like `RunEvent::Reopen` on macOS. Must
+    // be the first plugin.
+    #[cfg(windows)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        commands::show_settings_window(app);
+    }));
+    builder
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         // Manage the state up-front (before setup) so the webview can never win
@@ -89,6 +103,8 @@ pub fn run() {
             setup_global_shortcut(app)?;
             #[cfg(target_os = "macos")]
             macos_input::install(&app.handle());
+            #[cfg(windows)]
+            windows_input::install(app.handle());
             setup_tray(app)?;
             if !onboarded {
                 commands::show_welcome_window(&app.handle());
@@ -143,6 +159,7 @@ pub fn run() {
             commands::check_python,
             commands::open_python_install,
             commands::check_permissions,
+            commands::window_material,
             commands::request_permission,
             commands::finish_onboarding,
             commands::check_update,

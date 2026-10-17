@@ -61,7 +61,8 @@ export default {
     placeholder: "Record shortcut",
     pressMouseButton: "Press the mouse button you want to use",
     combineModifier: "Combine the modifier with another key",
-    addModifier: "Add a modifier (⌘ ⌥ ⌃ ⇧)",
+    /** {mods} lists the modifier keys: "⌘ ⌥ ⌃ ⇧" on macOS, "Ctrl, Alt, Shift, Win" on Windows. */
+    addModifier: "Add a modifier ({mods})",
   },
   mouseButtons: {
     middle: "Middle click",

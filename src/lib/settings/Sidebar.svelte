@@ -94,9 +94,28 @@
     border-right: 1px solid var(--line);
     overflow: hidden;
   }
-  /* macOS: let the native vibrancy behind the window show through. */
-  :global(.app.mac) .sidebar {
+  /* Let the native material behind the window (vibrancy / Mica) show through. */
+  :global(.app.translucent) .sidebar {
     background: transparent;
+  }
+  :global(.app.mica) .sidebar {
+    border-right: none;
+  }
+  /* Windows: the native title bar sits above, nothing to clear for. */
+  :global(.app.windows) .drag {
+    height: 8px;
+  }
+  /* Windows 11: an accent pill marks the selected item. */
+  :global(.app.windows) .highlight::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 3px;
+    height: 16px;
+    margin-top: -8px;
+    border-radius: 2px;
+    background: var(--accent);
   }
   .drag {
     height: 52px;

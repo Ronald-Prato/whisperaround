@@ -1,6 +1,6 @@
 :root {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, system-ui, "Segoe UI", Helvetica, Arial,
-    sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", Inter,
+    system-ui, Helvetica, Arial, sans-serif;
   /* Base size for the decorated windows (settings / welcome). The floating
      pill sizes its own typography in px so it stays compact regardless. */
   font-size: 13px;

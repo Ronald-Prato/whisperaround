@@ -268,7 +268,7 @@ const dict: Dict = {
       placeholder: "设定快捷键",
       pressMouseButton: "请按下你要使用的鼠标按钮",
       combineModifier: "请将修饰键与其他按键组合",
-      addModifier: "请添加修饰键（⌘ ⌥ ⌃ ⇧）",
+      addModifier: "请添加修饰键（{mods}）",
     },
     mouseButtons: {
       middle: "中键点按",
@@ -315,10 +315,12 @@ const dict: Dict = {
       configured: "已配置",
       missing: "未配置",
       keySub: "存储在系统钥匙串中，且仅会发送到 api.openai.com。",
+      keySubWindows: "存储在 Windows 凭据管理器中，且仅会发送到 api.openai.com。",
       replacePlaceholder: "••••••••••••  （替换）",
       saving: "正在存储…",
       save: "存储",
       keySaved: "API 密钥已存储到钥匙串",
+      keySavedWindows: "API 密钥已存储到凭据管理器",
     },
     activeNote: "所选模型将应用于当前模式",
     groups: {

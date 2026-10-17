@@ -40,7 +40,7 @@
         "hiddenTitle": true,
         "trafficLightPosition": { "x": 20, "y": 24 },
         "transparent": true,
-        "windowEffects": { "effects": ["sidebar"], "state": "followsWindowActiveState" }
+        "windowEffects": { "effects": ["sidebar", "mica"], "state": "followsWindowActiveState" }
       },
       {
         "title": "Welcome to WhisperAround",

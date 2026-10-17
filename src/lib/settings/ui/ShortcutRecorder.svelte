@@ -3,7 +3,7 @@
   import { cubicInOut } from "svelte/easing";
   import Icon from "./Icon.svelte";
   import Keys from "./Keys.svelte";
-  import { beginShortcutCapture, endShortcutCapture, IS_MAC, requestPermission } from "../../ipc";
+  import { beginShortcutCapture, endShortcutCapture, NATIVE_SHORTCUTS, requestPermission } from "../../ipc";
   import {
     acceleratorFromEvent,
     chips,
@@ -80,7 +80,9 @@
   function onKeyDown(e: KeyboardEvent) {
     e.preventDefault();
     e.stopPropagation();
-    if (e.repeat) return;
+    // No code: the no-op key Windows' input hook injects so a lone Win tap
+    // doesn't open the Start menu.
+    if (e.repeat || !e.code) return;
     const bare = !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey;
     if (kind === "mouse") {
       if (e.code === "Escape") cancel();
@@ -109,7 +111,7 @@
     const lone = !sawKey && held.length === 1 && held[0] === code;
     held = held.filter((c) => c !== code);
     if (lone) {
-      if (IS_MAC && allowModifierOnly) finish(`mod:${code}`);
+      if (NATIVE_SHORTCUTS && allowModifierOnly) finish(`mod:${code}`);
       else reject(t("configuration.recorder.combineModifier"));
     }
   }

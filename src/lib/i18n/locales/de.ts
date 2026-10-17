@@ -270,7 +270,7 @@ const dict: Dict = {
       placeholder: "Kurzbefehl festlegen",
       pressMouseButton: "Die gewünschte Maustaste drücken",
       combineModifier: "Sondertaste mit einer weiteren Taste kombinieren",
-      addModifier: "Sondertaste hinzufügen (⌘ ⌥ ⌃ ⇧)",
+      addModifier: "Sondertaste hinzufügen ({mods})",
     },
     mouseButtons: {
       middle: "Mittelklick",
@@ -317,10 +317,12 @@ const dict: Dict = {
       configured: "Eingerichtet",
       missing: "Fehlt",
       keySub: "Im Schlüsselbund des Systems gespeichert und nur an api.openai.com gesendet.",
+      keySubWindows: "In der Windows-Anmeldeinformationsverwaltung gespeichert und nur an api.openai.com gesendet.",
       replacePlaceholder: "••••••••••••  (ersetzen)",
       saving: "Wird gesichert …",
       save: "Sichern",
       keySaved: "API-Schlüssel im Schlüsselbund gespeichert",
+      keySavedWindows: "API-Schlüssel in der Anmeldeinformationsverwaltung gespeichert",
     },
     activeNote: "Das gewählte Modell gilt für den aktiven Modus",
     groups: {

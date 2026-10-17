@@ -270,7 +270,7 @@ const dict: Dict = {
       placeholder: "ショートカットを登録",
       pressMouseButton: "使用するマウスボタンを押してください",
       combineModifier: "修飾キーをほかのキーと組み合わせてください",
-      addModifier: "修飾キーを追加してください（⌘ ⌥ ⌃ ⇧）",
+      addModifier: "修飾キーを追加してください（{mods}）",
     },
     mouseButtons: {
       middle: "中央クリック",
@@ -317,10 +317,12 @@ const dict: Dict = {
       configured: "設定済み",
       missing: "未設定",
       keySub: "システムのキーチェーンに保存され、api.openai.com にのみ送信されます。",
+      keySubWindows: "Windows の資格情報マネージャーに保存され、api.openai.com にのみ送信されます。",
       replacePlaceholder: "••••••••••••  （置き換え）",
       saving: "保存中…",
       save: "保存",
       keySaved: "APIキーをキーチェーンに保存しました",
+      keySavedWindows: "APIキーを資格情報マネージャーに保存しました",
     },
     activeNote: "選択したモデルは使用中のモードに設定されます",
     groups: {

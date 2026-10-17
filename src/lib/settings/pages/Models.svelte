@@ -5,7 +5,7 @@
   import { store } from "../store.svelte";
   import { MODELS, modelDescription, type ModelOption } from "../../models";
   import { local, formatBytes } from "../../localModels.svelte";
-  import { cancelModelDownload, checkPython, downloadModel, openPythonInstall, setModel, IS_MAC, DOWNLOAD_CANCELLED } from "../../ipc";
+  import { cancelModelDownload, checkPython, downloadModel, openPythonInstall, setModel, IS_WINDOWS, DOWNLOAD_CANCELLED } from "../../ipc";
   import { t, type Key } from "../../i18n/index.svelte";
 
   const v = $derived(store.view!);
@@ -26,7 +26,7 @@
     savingKey = true;
     if (await store.patch({ openaiApiKey: key })) {
       key = "";
-      store.notify(t("models.openai.keySaved"));
+      store.notify(t(IS_WINDOWS ? "models.openai.keySavedWindows" : "models.openai.keySaved"));
     }
     savingKey = false;
   }
@@ -69,7 +69,7 @@
               <span class="badge orange" in:fade>{t("models.openai.missing")}</span>
             {/if}
           </strong>
-          <small>{t("models.openai.keySub")}</small>
+          <small>{t(IS_WINDOWS ? "models.openai.keySubWindows" : "models.openai.keySub")}</small>
         </div>
         <form class="control key" onsubmit={(e) => (e.preventDefault(), saveKey())}>
           <span class="key-input">
@@ -100,7 +100,7 @@
             <span class="badge green">{python}</span>
           {:else}
             <span class="badge orange">{t("models.python.notFound")}</span>
-            <button class="pill-button small" onclick={() => openPythonInstall()}>{IS_MAC ? t("models.python.getPython") : t("models.python.microsoftStore")}</button>
+            <button class="pill-button small" onclick={() => openPythonInstall()}>{IS_WINDOWS ? t("models.python.microsoftStore") : t("models.python.getPython")}</button>
           {/if}
         {/if}
       </div>

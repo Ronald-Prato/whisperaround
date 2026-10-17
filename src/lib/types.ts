@@ -124,3 +124,6 @@ export interface ModelDownload {
   received: number;
   total: number;
 }
+
+/** Native backdrop behind the settings window (`window_material`). */
+export type WindowMaterial = "vibrancy" | "mica" | "none";

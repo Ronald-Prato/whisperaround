@@ -269,7 +269,7 @@ const dict: Dict = {
       placeholder: "단축키 지정",
       pressMouseButton: "사용할 마우스 버튼을 누르세요",
       combineModifier: "보조 키를 다른 키와 함께 누르세요",
-      addModifier: "보조 키 추가(⌘ ⌥ ⌃ ⇧)",
+      addModifier: "보조 키 추가({mods})",
     },
     mouseButtons: {
       middle: "가운데 클릭",
@@ -316,10 +316,12 @@ const dict: Dict = {
       configured: "설정됨",
       missing: "없음",
       keySub: "시스템 키체인에 저장되며 api.openai.com으로만 전송됩니다.",
+      keySubWindows: "Windows 자격 증명 관리자에 저장되며 api.openai.com으로만 전송됩니다.",
       replacePlaceholder: "••••••••••••  (교체)",
       saving: "저장 중…",
       save: "저장",
       keySaved: "API 키가 키체인에 저장되었습니다",
+      keySavedWindows: "API 키가 자격 증명 관리자에 저장되었습니다",
     },
     activeNote: "선택한 모델이 활성 모드에 적용됩니다",
     groups: {

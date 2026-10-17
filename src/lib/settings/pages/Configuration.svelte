@@ -4,7 +4,7 @@
   import ShortcutRecorder from "../ui/ShortcutRecorder.svelte";
   import Select from "../ui/Select.svelte";
   import { store } from "../store.svelte";
-  import { IS_MAC } from "../../ipc";
+  import { IS_MAC, IS_WINDOWS, NATIVE_SHORTCUTS } from "../../ipc";
   import type { PillPosition, PillSkin, PillStyle, SettingsPatch, Theme } from "../../types";
   import { t, LOCALES, type Key, type Locale } from "../../i18n/index.svelte";
 
@@ -39,13 +39,14 @@
     def: string;
     kind?: "keyboard" | "mouse";
     bareEsc?: boolean;
-    macOnly?: boolean;
+    /** Needs a native backend (`NATIVE_SHORTCUTS`). */
+    native?: boolean;
   }[] = [
     { key: "shortcut", title: "configuration.shortcuts.toggle", sub: "configuration.shortcuts.toggleSub", def: "CmdOrCtrl+Shift+X" },
     { key: "cancelShortcut", title: "configuration.shortcuts.cancel", sub: "configuration.shortcuts.cancelSub", def: "Escape", bareEsc: true },
     { key: "modeShortcut", title: "configuration.shortcuts.mode", sub: "configuration.shortcuts.modeSub", def: "Alt+Shift+KeyK" },
     { key: "pttShortcut", title: "configuration.shortcuts.ptt", sub: "configuration.shortcuts.pttSub", def: "" },
-    { key: "mouseShortcut", title: "configuration.shortcuts.mouse", sub: "configuration.shortcuts.mouseSub", def: "", kind: "mouse", macOnly: true },
+    { key: "mouseShortcut", title: "configuration.shortcuts.mouse", sub: "configuration.shortcuts.mouseSub", def: "", kind: "mouse", native: true },
   ];
 
   function set(patch: SettingsPatch) {
@@ -68,7 +69,7 @@
         <div class="thumbs">
           {#each THEMES as th (th.id)}
             <button class="thumb" class:selected={v.theme === th.id} onclick={() => set({ theme: th.id })}>
-              <span class="frame wallpaper {th.id}">
+              <span class="frame wallpaper {th.id}" class:pc={IS_WINDOWS}>
                 <span class="win"><i></i><i></i><i></i></span>
               </span>
               {th.label}
@@ -149,7 +150,7 @@
         <div class="thumbs control">
           {#each POSITIONS as p (p.id)}
             <button class="thumb" class:selected={v.pillPosition === p.id} onclick={() => set({ pillPosition: p.id })}>
-              <span class="frame screen {p.id}">
+              <span class="frame screen {p.id}" class:pc={IS_WINDOWS}>
                 <span class="menubar"></span>
                 <span class="mini-dot"></span>
                 <span class="dock"></span>
@@ -165,7 +166,7 @@
   <section class="section">
     <h3 class="section-title">{t("configuration.shortcuts.title")}</h3>
     <div class="card">
-      {#each SHORTCUTS.filter((s) => !s.macOnly || IS_MAC) as s (s.key)}
+      {#each SHORTCUTS.filter((s) => !s.native || NATIVE_SHORTCUTS) as s (s.key)}
         <div class="row">
           <div class="row-text">
             <strong>{t(s.title)}</strong>
@@ -183,9 +184,9 @@
         </div>
       {/each}
     </div>
-    {#if IS_MAC}
+    {#if NATIVE_SHORTCUTS}
       <p class="section-sub hint">
-        {#each tipParts as part, i (i)}{#if part === "{cmd}"}<b>⌘</b>{:else if part === "{delete}"}<b>⌫</b>{:else}{part}{/if}{/each}
+        {#each tipParts as part, i (i)}{#if part === "{cmd}"}<b>{IS_MAC ? "⌘" : "Ctrl"}</b>{:else if part === "{delete}"}<b>{IS_MAC ? "⌫" : "Backspace"}</b>{:else}{part}{/if}{/each}
       </p>
     {/if}
   </section>
@@ -290,6 +291,42 @@
   }
   .win i:nth-child(3) {
     background: #28c840;
+  }
+  /* Windows: caption buttons (minimize / maximize / close) top-right. */
+  .pc .win {
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 5px;
+    padding: 3px 6px 0 0;
+    color: rgba(255, 255, 255, 0.75);
+  }
+  .pc.light .win {
+    color: rgba(0, 0, 0, 0.6);
+  }
+  .pc .win::before {
+    top: 13px;
+  }
+  .pc .win i {
+    width: 5px;
+    height: 5px;
+    border-radius: 0;
+    background: transparent;
+  }
+  .pc .win i:nth-child(1) {
+    height: 3px;
+    border-bottom: 1px solid currentColor;
+  }
+  .pc .win i:nth-child(2) {
+    border: 1px solid currentColor;
+    border-radius: 1px;
+  }
+  .pc .win i:nth-child(3) {
+    background:
+      linear-gradient(45deg, transparent 43%, currentColor 43% 57%, transparent 57%),
+      linear-gradient(-45deg, transparent 43%, currentColor 43% 57%, transparent 57%);
+  }
+  .pc.auto .win i {
+    color: rgba(255, 255, 255, 0.75);
   }
 
   /* ---- Recording window mocks ---- */
@@ -478,6 +515,18 @@
     background: #0d0d0f;
     box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.3);
     transition: top 0.45s var(--ease);
+  }
+  /* Windows: no menu bar, a full-width taskbar. */
+  .pc .menubar {
+    display: none;
+  }
+  .pc .dock {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 7px;
+    border-radius: 0;
+    background: rgba(255, 255, 255, 0.35);
   }
   .top .mini-dot {
     top: 8px;

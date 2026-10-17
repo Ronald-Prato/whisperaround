@@ -3,9 +3,10 @@
 //! A binding is stored as a string:
 //! - `"Super+Shift+KeyX"` — an accelerator, registered with the global-shortcut
 //!   plugin (works everywhere);
-//! - `"mod:MetaRight"` — a lone modifier key (macOS, via `macos_input`);
+//! - `"mod:MetaRight"` — a lone modifier key (macOS and Windows, via
+//!   `native_input`; `Fn` is macOS only);
 //! - `"mouse:3"` — an extra mouse button, NSEvent numbering (2 = middle,
-//!   3 = back, 4 = forward; macOS only);
+//!   3 = back, 4 = forward; macOS and Windows);
 //! - `""` — unbound.
 //!
 //! Locking rule: never hold [`ShortcutState`] while calling into the plugin.
@@ -98,9 +99,14 @@ impl Binding {
             .map_err(|_| tf("shortcut.error.invalid", &[("shortcut", &s)]))
     }
 
-    /// Native (non-plugin) bindings only work on macOS.
+    /// Native (non-plugin) bindings need a `native_input` backend; Windows
+    /// can't see the Fn key.
     fn supported(&self) -> bool {
-        matches!(self, Binding::Accelerator(_)) || cfg!(target_os = "macos")
+        match self {
+            Binding::Accelerator(_) => true,
+            Binding::Modifier(ModKey::Fn) => cfg!(target_os = "macos"),
+            _ => cfg!(any(target_os = "macos", windows)),
+        }
     }
 }
 
@@ -112,7 +118,7 @@ struct Inner {
     always: Vec<Shortcut>,
     /// The cancel accelerator, registered only while recording.
     cancel: Option<Shortcut>,
-    /// Modifier / mouse bindings, read by `macos_input`.
+    /// Modifier / mouse bindings, read by the `native_input` backends.
     native: Vec<(Binding, Action)>,
     /// Non-zero while the settings window is recording a shortcut.
     capture: u64,
@@ -197,6 +203,7 @@ pub fn apply(app: &AppHandle, settings: &Settings) -> Result<(), String> {
         }
         capturing = inner.capture != 0;
     }
+    sync_native();
     if capturing {
         return Ok(()); // `end_capture` registers them
     }
@@ -267,8 +274,9 @@ pub fn on_accelerator(app: &AppHandle, shortcut: &Shortcut, state: KeyState) {
     }
 }
 
-/// Native bindings (modifier / mouse) for `macos_input`; empty while capturing.
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+/// Native bindings (modifier / mouse) for the `native_input` backends; empty
+/// while capturing.
+#[cfg_attr(not(any(target_os = "macos", windows)), allow(dead_code))]
 pub fn native_bindings(app: &AppHandle) -> Vec<(Binding, Action)> {
     let inner = lock(app);
     if inner.capture != 0 {
@@ -276,6 +284,29 @@ pub fn native_bindings(app: &AppHandle) -> Vec<(Binding, Action)> {
     } else {
         inner.native.clone()
     }
+}
+
+/// Whether the settings window is recording a shortcut.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub fn capturing(app: &AppHandle) -> bool {
+    lock(app).capture != 0
+}
+
+/// Which Windows input hooks are needed: `(keyboard, mouse)`. The keyboard
+/// one also runs during a capture, to keep a lone Win tap from opening the
+/// Start menu while it is being recorded.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub fn native_hooks(app: &AppHandle) -> (bool, bool) {
+    let inner = lock(app);
+    let keyboard = inner.capture != 0 || inner.native.iter().any(|(b, _)| matches!(b, Binding::Modifier(_)));
+    let mouse = inner.native.iter().any(|(b, _)| matches!(b, Binding::Mouse(_)));
+    (keyboard, mouse)
+}
+
+/// Tell the Windows backend to (un)install its hooks.
+fn sync_native() {
+    #[cfg(windows)]
+    crate::windows_input::sync();
 }
 
 /// Run `action`; `pressed` is false for key/button releases.
@@ -320,6 +351,7 @@ pub fn begin_capture(app: &AppHandle) {
         inner.capture
     };
     let _ = app.global_shortcut().unregister_all();
+    sync_native();
     let app = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_secs(15));
@@ -338,6 +370,7 @@ pub fn end_capture(app: &AppHandle) {
         }
         inner.capture = 0;
     }
+    sync_native();
     if let Err(e) = register_all(app) {
         eprintln!("[whisperaround] {e}");
     }

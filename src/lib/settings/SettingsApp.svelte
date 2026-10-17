@@ -14,10 +14,13 @@
   import Models from "./pages/Models.svelte";
   import History from "./pages/History.svelte";
   import { store } from "./store.svelte";
-  import { IS_MAC } from "../ipc";
+  import { IS_MAC, IS_WINDOWS, windowMaterial } from "../ipc";
+  import type { WindowMaterial } from "../types";
   import { t } from "../i18n/index.svelte";
 
   let scroller = $state<HTMLDivElement>();
+  /** macOS always has its vibrancy; Windows reports whether Mica is on. */
+  let material = $state<WindowMaterial>(IS_MAC ? "vibrancy" : "none");
 
   const PAGES = { home: Home, modes: Modes, vocabulary: Vocabulary, configuration: Configuration, sound: Sound, models: Models, history: History };
   const Page = $derived(PAGES[store.page]);
@@ -31,6 +34,7 @@
   });
 
   onMount(() => {
+    windowMaterial().then((m) => (material = m));
     store.init().catch((e) => store.notify(t("shell.toast.loadFailed", { error: String(e) }), "error"));
     // Pick up permissions granted in System Settings / devices plugged in meanwhile.
     const onFocus = () => {
@@ -47,7 +51,7 @@
   });
 </script>
 
-<div class="app" class:mac={IS_MAC}>
+<div class="app" class:mac={IS_MAC} class:windows={IS_WINDOWS} class:translucent={material !== "none"} class:mica={material === "mica"}>
   <Sidebar />
 
   <section class="main">
@@ -109,15 +113,28 @@
     display: flex;
     flex-direction: column;
   }
-  /* macOS: the window is transparent over a native "sidebar" vibrancy
-     material (see `windowEffects` in tauri.conf.json). The sidebar shows it
-     fully; the content area keeps a light tint of the page color on top. */
-  .app.mac {
+  /* The window is transparent over a native material (see `windowEffects`
+     in tauri.conf.json): the "sidebar" vibrancy on macOS, Mica on Windows 11.
+     The sidebar shows it fully; the content area keeps a light tint of the
+     page color on top. */
+  .app.translucent {
     background: transparent;
   }
-  .app.mac .main {
+  .app.translucent .main {
     background: color-mix(in srgb, var(--bg) 80%, transparent);
     transition: background-color 0.4s var(--ease);
+  }
+  /* Windows 11: the content sits on a layer with a rounded top-left corner,
+     like WinUI's navigation view. */
+  .app.mica .main {
+    border-top: 1px solid var(--line);
+    border-left: 1px solid var(--line);
+    border-top-left-radius: 8px;
+  }
+  /* Windows draws a native title bar, so there are no traffic lights to
+     clear and the header can be shorter. */
+  .app.windows header {
+    height: 46px;
   }
   header {
     display: flex;

@@ -4,7 +4,8 @@
  * Stored formats (see `src-tauri/src/shortcuts.rs`): an accelerator such as
  * `"Super+Shift+KeyX"` (key names are `KeyboardEvent.code` values, which the
  * Rust parser accepts), `"mod:MetaRight"` for a lone modifier, `"mouse:3"` for
- * an extra mouse button (NSEvent numbering), or `""` when unbound.
+ * an extra mouse button (NSEvent numbering), or `""` when unbound. The last
+ * two need a native backend (`NATIVE_SHORTCUTS`: macOS and Windows).
  */
 import { IS_MAC } from "./ipc";
 import { t } from "./i18n/index.svelte";
@@ -39,7 +40,7 @@ const MOD_ALIASES: Record<string, string> = {
 /** macOS order: ⌃ ⌥ ⇧ ⌘. */
 const MOD_ORDER = ["Control", "Alt", "Shift", "Super"];
 
-const KEY_LABELS: Record<string, string> = {
+const MAC_KEY_LABELS: Record<string, string> = {
   Escape: "esc",
   Space: "space",
   Enter: "↩",
@@ -66,6 +67,26 @@ const KEY_LABELS: Record<string, string> = {
   PageUp: "⇞",
   PageDown: "⇟",
 };
+
+/** Windows spells the special keys out, as printed on PC keyboards. */
+const PC_KEY_LABELS: Record<string, string> = {
+  ...MAC_KEY_LABELS,
+  Escape: "Esc",
+  Space: "Space",
+  Enter: "Enter",
+  Backspace: "Backspace",
+  Delete: "Del",
+  Tab: "Tab",
+  Home: "Home",
+  End: "End",
+  PageUp: "PgUp",
+  PageDown: "PgDn",
+};
+
+const KEY_LABELS = IS_MAC ? MAC_KEY_LABELS : PC_KEY_LABELS;
+
+/** Modifier names for hints ("Add a modifier (…)"). */
+export const MODIFIER_LIST = IS_MAC ? "⌘ ⌥ ⌃ ⇧" : "Ctrl, Alt, Shift, Win";
 
 function keyLabel(code: string): string {
   if (/^Key[A-Z]$/.test(code)) return code.slice(3);
@@ -162,7 +183,7 @@ export function acceleratorFromEvent(e: KeyboardEvent, allowBareEscape: boolean)
   if (!code) return null;
   if (mods.length === 0) {
     if (code === "Escape" && allowBareEscape) return { binding: "Escape" };
-    if (!ALLOWED_BARE.test(code)) return { error: t("configuration.recorder.addModifier") };
+    if (!ALLOWED_BARE.test(code)) return { error: t("configuration.recorder.addModifier", { mods: MODIFIER_LIST }) };
   }
   return { binding: [...mods, code].join("+") };
 }

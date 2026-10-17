@@ -5,10 +5,13 @@ export default {
     configured: "Configured",
     missing: "Missing",
     keySub: "Stored in the system keychain and only ever sent to api.openai.com.",
+    /** Windows variants: the key lives in Credential Manager (use its localized name). */
+    keySubWindows: "Stored in Windows Credential Manager and only ever sent to api.openai.com.",
     replacePlaceholder: "••••••••••••  (replace)",
     saving: "Saving…",
     save: "Save",
     keySaved: "API key saved to the keychain",
+    keySavedWindows: "API key saved to Credential Manager",
   },
   activeNote: "Picking a model sets it for your active mode",
   groups: {

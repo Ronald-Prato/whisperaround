@@ -45,6 +45,10 @@ fn start(app: &AppHandle) {
     {
         *state.recording_app.lock().unwrap() = crate::macos::frontmost_app_name();
     }
+    #[cfg(windows)]
+    {
+        *state.recording_app.lock().unwrap() = crate::win::frontmost_app_name();
+    }
     // Plays while the mic opens; short enough not to matter to Whisper.
     sounds::play(app, Sound::Start);
     let device = state.settings.lock().unwrap().input_device.clone();

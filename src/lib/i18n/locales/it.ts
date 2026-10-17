@@ -274,7 +274,7 @@ const dict: Dict = {
       placeholder: "Imposta abbreviazione",
       pressMouseButton: "Premi il pulsante del mouse che vuoi usare",
       combineModifier: "Combina il modificatore con un altro tasto",
-      addModifier: "Aggiungi un modificatore (⌘ ⌥ ⌃ ⇧)",
+      addModifier: "Aggiungi un modificatore ({mods})",
     },
     mouseButtons: {
       middle: "Clic centrale",
@@ -321,10 +321,12 @@ const dict: Dict = {
       configured: "Configurata",
       missing: "Mancante",
       keySub: "Salvata nel portachiavi di sistema e inviata solo a api.openai.com.",
+      keySubWindows: "Salvata in Gestione credenziali di Windows e inviata solo a api.openai.com.",
       replacePlaceholder: "••••••••••••  (sostituisci)",
       saving: "Salvataggio…",
       save: "Salva",
       keySaved: "Chiave API salvata nel portachiavi",
+      keySavedWindows: "Chiave API salvata in Gestione credenziali",
     },
     activeNote: "Il modello scelto viene impostato per la modalità attiva",
     groups: {

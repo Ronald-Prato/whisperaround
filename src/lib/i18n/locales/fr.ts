@@ -274,7 +274,7 @@ const dict: Dict = {
       placeholder: "Définir un raccourci",
       pressMouseButton: "Appuyez sur le bouton de la souris à utiliser",
       combineModifier: "Combinez la touche de modification avec une autre touche",
-      addModifier: "Ajoutez une touche de modification (⌘ ⌥ ⌃ ⇧)",
+      addModifier: "Ajoutez une touche de modification ({mods})",
     },
     mouseButtons: {
       middle: "Clic central",
@@ -321,10 +321,12 @@ const dict: Dict = {
       configured: "Configurée",
       missing: "Manquante",
       keySub: "Stockée dans le trousseau du système et envoyée uniquement à api.openai.com.",
+      keySubWindows: "Stockée dans le Gestionnaire d'identification de Windows et envoyée uniquement à api.openai.com.",
       replacePlaceholder: "••••••••••••  (remplacer)",
       saving: "Enregistrement…",
       save: "Enregistrer",
       keySaved: "Clé API enregistrée dans le trousseau",
+      keySavedWindows: "Clé API enregistrée dans le Gestionnaire d'identification",
     },
     activeNote: "Le modèle choisi s’applique à votre mode actif",
     groups: {
