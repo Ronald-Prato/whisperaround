@@ -160,6 +160,22 @@ fn ensure_venv(app: &AppHandle) -> Result<PathBuf> {
     Ok(python)
 }
 
+#[cfg(windows)]
+const PYTHON_HINT: &str = "instálalo desde la Microsoft Store (bandeja › Bienvenida)";
+#[cfg(not(windows))]
+const PYTHON_HINT: &str = "instálalo desde python.org o con `brew install python` (bandeja › Bienvenida)";
+
+/// Where Python usually lives on macOS (Homebrew on Apple Silicon / Intel,
+/// the python.org installer). Apps opened from Finder get a bare
+/// `/usr/bin:/bin:/usr/sbin:/sbin` PATH that misses all of them, leaving only
+/// the old Command Line Tools Python (or a prompt to install them).
+#[cfg(target_os = "macos")]
+const MACOS_PYTHON_DIRS: &[&str] = &[
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+    "/Library/Frameworks/Python.framework/Versions/Current/bin",
+];
+
 /// System Python launchers to try, in order of preference.
 fn python_candidates() -> &'static [(&'static str, &'static [&'static str])] {
     if cfg!(windows) {
@@ -198,9 +214,7 @@ fn create_venv(venv: &Path) -> Result<()> {
             Err(e) => last_err = e,
         }
     }
-    Err(anyhow!(
-        "los modelos locales necesitan Python 3: instálalo desde la Microsoft Store (bandeja › Bienvenida) ({last_err})"
-    ))
+    Err(anyhow!("los modelos locales necesitan Python 3: {PYTHON_HINT} ({last_err})"))
 }
 
 fn run(cmd: &mut Command, what: &str) -> Result<()> {
@@ -220,6 +234,9 @@ fn run(cmd: &mut Command, what: &str) -> Result<()> {
 fn command(program: &Path) -> Command {
     let mut cmd = Command::new(program);
     cmd.env("PYTHONUTF8", "1").env("PYTHONIOENCODING", "utf-8");
+    // A changed child PATH is also the one used to look up `program`.
+    #[cfg(target_os = "macos")]
+    cmd.env("PATH", macos_path(std::env::var_os("PATH")));
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -227,6 +244,19 @@ fn command(program: &Path) -> Command {
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
     cmd
+}
+
+/// `PATH` with the usual Python install dirs first, then the inherited one.
+#[cfg(target_os = "macos")]
+fn macos_path(inherited: Option<std::ffi::OsString>) -> std::ffi::OsString {
+    let extra = MACOS_PYTHON_DIRS.iter().map(PathBuf::from);
+    let rest = inherited
+        .as_deref()
+        .map(|p| std::env::split_paths(p).collect::<Vec<_>>())
+        .unwrap_or_default();
+    let mut seen = std::collections::HashSet::new();
+    let dirs: Vec<PathBuf> = extra.chain(rest).filter(|d| seen.insert(d.clone())).collect();
+    std::env::join_paths(dirs).unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -238,5 +268,15 @@ mod tests {
         assert_eq!(model_name("local:medium"), Some("medium"));
         assert_eq!(model_name("whisper-1"), None);
         assert_eq!(model_name("gpt-4o-mini-transcribe"), None);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_path_puts_python_dirs_first_without_duplicates() {
+        let path = macos_path(Some("/usr/bin:/opt/homebrew/bin:/bin".into()));
+        assert_eq!(
+            path,
+            "/opt/homebrew/bin:/usr/local/bin:/Library/Frameworks/Python.framework/Versions/Current/bin:/usr/bin:/bin"
+        );
     }
 }

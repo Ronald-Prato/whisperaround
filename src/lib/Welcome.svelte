@@ -1,6 +1,15 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { checkPython, openPythonInstall, finishOnboarding, openSettings } from "./ipc";
+  import {
+    checkPython,
+    openPythonInstall,
+    finishOnboarding,
+    openSettings,
+    checkPermissions,
+    requestPermission,
+    IS_MAC,
+  } from "./ipc";
+  import type { Permissions } from "./types";
 
   /** `undefined` while checking, `null` if missing, else the version string. */
   let python = $state<string | null | undefined>(undefined);
@@ -16,6 +25,17 @@
     }
   }
 
+  /** macOS only (null elsewhere); polled so toggles made in System Settings show up. */
+  let perms = $state<Permissions | null>(null);
+
+  async function refreshPermissions() {
+    try {
+      perms = await checkPermissions();
+    } catch (e) {
+      console.error("checkPermissions failed", e);
+    }
+  }
+
   async function install() {
     await openPythonInstall();
     storeOpened = true;
@@ -26,7 +46,12 @@
     await finishOnboarding();
   }
 
-  onMount(recheck);
+  onMount(() => {
+    recheck();
+    refreshPermissions();
+    const timer = setInterval(refreshPermissions, 1500);
+    return () => clearInterval(timer);
+  });
 </script>
 
 <div class="welcome">
@@ -34,6 +59,44 @@
     <h1>Bienvenido a WhisperAround</h1>
     <p>Dicta en cualquier app: pulsa el atajo, habla y el texto se pega solo.</p>
   </header>
+
+  {#if perms}
+    <section class="check" class:ok={perms.microphone === "granted"} class:missing={perms.microphone === "denied"}>
+      <div class="check-head">
+        <span class="dot" aria-hidden="true"></span>
+        <strong>Micrófono</strong>
+        <span class="state">
+          {#if perms.microphone === "granted"}Permitido{:else if perms.microphone === "denied"}Bloqueado{:else}Sin pedir{/if}
+        </span>
+      </div>
+      {#if perms.microphone !== "granted"}
+        <p>Para grabar tu voz. macOS te lo pedirá una vez.</p>
+        <div class="row">
+          <button class="primary" onclick={() => requestPermission("microphone")}>
+            {perms.microphone === "denied" ? "Abrir Ajustes del Sistema" : "Permitir micrófono"}
+          </button>
+        </div>
+      {/if}
+    </section>
+
+    <section class="check" class:ok={perms.accessibility} class:missing={!perms.accessibility}>
+      <div class="check-head">
+        <span class="dot" aria-hidden="true"></span>
+        <strong>Accesibilidad</strong>
+        <span class="state">{perms.accessibility ? "Permitido" : "Falta"}</span>
+      </div>
+      {#if !perms.accessibility}
+        <p>
+          Para pegar el texto solo (⌘V) en la app que uses. Activa <b>WhisperAround</b> en
+          Ajustes del Sistema › Privacidad y seguridad › Accesibilidad. Sin esto, el texto queda en
+          el portapapeles.
+        </p>
+        <div class="row">
+          <button class="primary" onclick={() => requestPermission("accessibility")}>Permitir Accesibilidad</button>
+        </div>
+      {/if}
+    </section>
+  {/if}
 
   <section class="check" class:ok={!!python} class:missing={python === null}>
     <div class="check-head">
@@ -47,14 +110,18 @@
     {#if python === null}
       <p>
         Los modelos <b>locales</b> (faster-whisper, sin internet ni API key) necesitan Python.
-        Instálalo gratis desde la Microsoft Store y luego vuelve a comprobar.
+        {#if IS_MAC}
+          Instálalo desde python.org (o con <code>brew install python</code>) y luego vuelve a comprobar.
+        {:else}
+          Instálalo gratis desde la Microsoft Store y luego vuelve a comprobar.
+        {/if}
       </p>
       <div class="row">
-        <button class="primary" onclick={install}>Abrir Microsoft Store</button>
+        <button class="primary" onclick={install}>{IS_MAC ? "Abrir python.org" : "Abrir Microsoft Store"}</button>
         <button onclick={recheck}>Volver a comprobar</button>
       </div>
       {#if storeOpened}
-        <small>Cuando termine la instalación en la Store, pulsa 'Volver a comprobar'.</small>
+        <small>Cuando termine la instalación, pulsa 'Volver a comprobar'.</small>
       {/if}
     {:else if python}
       <p>Todo listo para usar los modelos locales.</p>

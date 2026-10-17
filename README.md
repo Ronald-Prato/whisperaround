@@ -2,7 +2,7 @@
 
 > superwhisper but open sourced
 
-Dictado por voz para Windows: pulsa un atajo, habla y el texto aparece escrito en
+Dictado por voz para Windows (y macOS, [compilando desde el código](#macos-compilando-desde-el-código)): pulsa un atajo, habla y el texto aparece escrito en
 la app que estés usando (correo, chat, documento…). Gratis y de código abierto.
 
 ## Descargar
@@ -41,6 +41,33 @@ botón **Actualizar**.
 La píldora vive arriba en la pantalla y en la bandeja del sistema (junto al
 reloj). Pasa el ratón por encima para ver sus botones; desde la bandeja puedes
 abrir Ajustes o salir.
+
+## macOS (compilando desde el código)
+
+Aún no hay instalador publicado para Mac, pero la app funciona: vive en la barra
+de menús (sin icono en el Dock) y el atajo es **`⌘⇧X`**.
+
+1. Instala Rust (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`),
+   Node 20+ y pnpm 10, y las Command Line Tools de Xcode (`xcode-select --install`).
+2. Compila y copia la app:
+
+   ```bash
+   pnpm install
+   pnpm build:mac
+   ditto src-tauri/target/release/bundle/macos/WhisperAround.app /Applications/WhisperAround.app
+   ```
+
+3. Ábrela. La pantalla de **Bienvenida** pide los dos permisos que necesita:
+   - **Micrófono**, para grabar.
+   - **Accesibilidad**, para pegar solo con ⌘V. Sin él, el texto queda en el
+     portapapeles.
+
+   La app está firmada *ad hoc* (sin cuenta de Apple Developer): cada vez que la
+   recompiles, macOS la ve como otra app y hay que volver a activar Accesibilidad
+   (quita la entrada antigua con **−** y vuelve a añadirla).
+
+Para los modelos locales sirve el Python de Homebrew (`brew install python`) o el
+de python.org; la app los busca aunque se abra desde Finder.
 
 ## Seguridad y privacidad
 

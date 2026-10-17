@@ -3,6 +3,8 @@
 mod commands;
 mod inject;
 mod local;
+#[cfg(target_os = "macos")]
+mod macos;
 mod pipeline;
 mod recorder;
 mod secret;
@@ -33,6 +35,11 @@ pub fn run() {
         // then loads the persisted settings into this already-managed state.
         .manage(AppState::new(Settings::default()))
         .setup(|app| {
+            // Menu-bar app on macOS: no Dock icon or Cmd+Tab entry (the bundle's
+            // Info.plist says the same; this covers `tauri dev`).
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
             // Load persisted settings into the already-managed state.
             let loaded = settings::load(&app.handle());
             let shortcut_str = loaded.shortcut.clone();
@@ -47,7 +54,15 @@ pub fn run() {
             // with the config flag) so the transparent window shows no box.
             if let Some(main) = app.get_webview_window("main") {
                 let _ = main.set_shadow(false);
+                #[cfg(target_os = "macos")]
+                macos::make_overlay(&main);
                 window::layout_main(&main, window::PILL_SIZE);
+            }
+            // The welcome window also lists the macOS permissions there.
+            #[cfg(target_os = "macos")]
+            if let Some(welcome) = app.get_webview_window("welcome") {
+                let _ = welcome.set_size(tauri::LogicalSize::new(460.0, 680.0));
+                let _ = welcome.center();
             }
 
             setup_global_shortcut(app, &shortcut_str)?;
@@ -84,6 +99,8 @@ pub fn run() {
             commands::open_settings,
             commands::check_python,
             commands::open_python_install,
+            commands::check_permissions,
+            commands::request_permission,
             commands::finish_onboarding,
             commands::check_update,
             commands::install_update,

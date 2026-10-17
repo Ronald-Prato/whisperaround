@@ -16,7 +16,31 @@ pub fn copy_to_clipboard(app: &AppHandle, text: &str) -> Result<()> {
 }
 
 /// Simulate the paste shortcut (Ctrl+V, or Cmd+V on macOS) in the focused app.
-pub fn paste() -> Result<()> {
+#[cfg(not(target_os = "macos"))]
+pub fn paste(_app: &AppHandle) -> Result<()> {
+    send_paste_keys()
+}
+
+/// On macOS the keystroke needs the Accessibility permission (otherwise it is
+/// silently dropped) and has to be posted from the main thread: enigo resolves
+/// the `V` key through the Text Input Sources API, which asserts it runs there.
+#[cfg(target_os = "macos")]
+pub fn paste(app: &AppHandle) -> Result<()> {
+    if !crate::macos::accessibility_trusted() {
+        crate::macos::request_accessibility();
+        return Err(anyhow!(
+            "el texto está en el portapapeles, pero para pegarlo solo activa WhisperAround en Ajustes del Sistema › Privacidad y seguridad › Accesibilidad"
+        ));
+    }
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.run_on_main_thread(move || {
+        let _ = tx.send(send_paste_keys());
+    })
+    .map_err(|e| anyhow!("hilo principal: {e}"))?;
+    rx.recv().map_err(|_| anyhow!("el pegado no llegó a ejecutarse"))?
+}
+
+fn send_paste_keys() -> Result<()> {
     let mut enigo =
         Enigo::new(&Settings::default()).map_err(|e| anyhow!("inicializando enigo: {e}"))?;
 

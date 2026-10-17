@@ -15,7 +15,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-clipboard-manager = "2"
 
@@ -46,6 +46,10 @@ windows = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsA
 
 [target.'cfg(target_os = "macos")'.dependencies]
 keyring = { version = "3", default-features = false, features = ["apple-native"] }
+# Privacy permission checks (Accessibility / Microphone) and window tweaks.
+objc2 = "0.6"
+objc2-foundation = "0.3"
+block2 = "0.6"
 
 [profile.release]
 # Optimize for a small binary to hit the < 20 MB target.

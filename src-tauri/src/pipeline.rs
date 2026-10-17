@@ -9,6 +9,12 @@ use crate::settings::Settings;
 use crate::state::{set_status, AppState, AppStatus};
 use crate::{inject, local, recorder, whisper};
 
+#[cfg(target_os = "macos")]
+const SILENT_MIC: &str =
+    "el micrófono no captó audio: revisa Ajustes del Sistema › Privacidad y seguridad › Micrófono";
+#[cfg(not(target_os = "macos"))]
+const SILENT_MIC: &str = "el micrófono no captó audio: revisa que no esté silenciado";
+
 /// Advance the state machine based on the current status.
 pub fn toggle(app: &AppHandle) {
     let current = {
@@ -26,6 +32,12 @@ pub fn toggle(app: &AppHandle) {
 }
 
 fn start(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    if let Err(msg) = check_mic_permission() {
+        set_status(app, AppStatus::Error, Some(msg.into()));
+        return;
+    }
+
     let state = app.state::<AppState>();
     // Live input level for the pill's waveform (`level` event, 0.0..=1.0).
     let level_app = app.clone();
@@ -57,6 +69,13 @@ fn stop_and_transcribe(app: &AppHandle) {
             return;
         }
     };
+
+    // Exact digital silence means the OS handed us a muted stream (on macOS:
+    // microphone permission denied), not a quiet room.
+    if recording.samples.iter().all(|&s| s == 0.0) {
+        set_status(app, AppStatus::Error, Some(SILENT_MIC.into()));
+        return;
+    }
 
     let wav = match recorder::encode_wav(&recording) {
         Ok(w) => w,
@@ -94,7 +113,7 @@ fn stop_and_transcribe(app: &AppHandle) {
                 if settings.auto_paste {
                     // Let the clipboard write settle before the paste keystroke.
                     std::thread::sleep(std::time::Duration::from_millis(120));
-                    if let Err(e) = inject::paste() {
+                    if let Err(e) = inject::paste(&app) {
                         set_status(&app, AppStatus::Error, Some(format!("auto-paste: {e}")));
                         return;
                     }
@@ -104,4 +123,22 @@ fn stop_and_transcribe(app: &AppHandle) {
             Err(e) => set_status(&app, AppStatus::Error, Some(e.to_string())),
         }
     });
+}
+
+/// Fail fast when macOS will not give us the microphone: recording anyway
+/// would only capture silence.
+#[cfg(target_os = "macos")]
+fn check_mic_permission() -> Result<(), &'static str> {
+    use crate::macos::{self, MicPermission};
+    match macos::microphone() {
+        MicPermission::Granted => Ok(()),
+        MicPermission::Undetermined => {
+            macos::request_microphone();
+            Err("permite el acceso al micrófono y vuelve a pulsar el atajo")
+        }
+        MicPermission::Denied => {
+            macos::open_privacy_settings("Privacy_Microphone");
+            Err("micrófono bloqueado: activa WhisperAround en Ajustes del Sistema › Privacidad y seguridad › Micrófono")
+        }
+    }
 }
